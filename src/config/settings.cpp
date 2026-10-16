@@ -982,7 +982,19 @@ static void to_json(json& j, const visual_profile::player& p)
                                   {"record_duels", p.m_anti_aim.record_duels},
                                   {"highlight_box", p.m_anti_aim.highlight_box},
                                   {"suspicious_color", p.m_anti_aim.suspicious_color},
-                                  {"repeated_color", p.m_anti_aim.repeated_color}}}};
+                                  {"repeated_color", p.m_anti_aim.repeated_color}}},
+             {"m_threat_vision", json{{"enabled", p.m_threat_vision.enabled},
+                                      {"clip_to_walls", p.m_threat_vision.clip_to_walls},
+                                      {"suspects_only", p.m_threat_vision.suspects_only},
+                                      {"filled", p.m_threat_vision.filled},
+                                      {"half_angle_deg", p.m_threat_vision.half_angle_deg},
+                                      {"distance_units", p.m_threat_vision.distance_units},
+                                      {"rays", p.m_threat_vision.rays},
+                                      {"max_targets", p.m_threat_vision.max_targets},
+                                      {"refresh_seconds", p.m_threat_vision.refresh_seconds},
+                                      {"normal_color", p.m_threat_vision.normal_color},
+                                      {"suspect_color", p.m_threat_vision.suspect_color},
+                                      {"repeated_color", p.m_threat_vision.repeated_color}}}};
 }
 
 static void from_json(const json& j, visual_profile::player& p)
@@ -1045,6 +1057,27 @@ static void from_json(const json& j, visual_profile::player& p)
         read_field(a, "suspicious_color", p.m_anti_aim.suspicious_color);
         read_field(a, "repeated_color", p.m_anti_aim.repeated_color);
     }
+    if (j.contains("m_threat_vision"))
+    {
+        const auto& zone = j.at("m_threat_vision");
+        read_field(zone, "enabled", p.m_threat_vision.enabled);
+        read_field(zone, "clip_to_walls", p.m_threat_vision.clip_to_walls);
+        read_field(zone, "suspects_only", p.m_threat_vision.suspects_only);
+        read_field(zone, "filled", p.m_threat_vision.filled);
+        read_field(zone, "half_angle_deg", p.m_threat_vision.half_angle_deg);
+        read_field(zone, "distance_units", p.m_threat_vision.distance_units);
+        read_field(zone, "rays", p.m_threat_vision.rays);
+        read_field(zone, "max_targets", p.m_threat_vision.max_targets);
+        read_field(zone, "refresh_seconds", p.m_threat_vision.refresh_seconds);
+        read_field(zone, "normal_color", p.m_threat_vision.normal_color);
+        read_field(zone, "suspect_color", p.m_threat_vision.suspect_color);
+        read_field(zone, "repeated_color", p.m_threat_vision.repeated_color);
+    }
+    p.m_threat_vision.half_angle_deg = std::clamp(p.m_threat_vision.half_angle_deg, 5.0f, 85.0f);
+    p.m_threat_vision.distance_units = std::clamp(p.m_threat_vision.distance_units, 150.0f, 2000.0f);
+    p.m_threat_vision.rays = std::clamp(p.m_threat_vision.rays, 6, 24);
+    p.m_threat_vision.max_targets = std::clamp(p.m_threat_vision.max_targets, 1, 8);
+    p.m_threat_vision.refresh_seconds = std::clamp(p.m_threat_vision.refresh_seconds, 0.08f, 0.8f);
 
     if (j.contains("m_bomb_damage") && (!j.contains("m_info_flags") || !j.at("m_info_flags").contains("bomb_damage")))
     {
