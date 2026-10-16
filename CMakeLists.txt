@@ -131,6 +131,7 @@ set(vesta_sources
 	 src/features/misc/auto_stop.cpp
     src/features/misc/bhop.cpp
     src/features/misc/nade_helper.cpp
+    src/features/misc/angle_placement.cpp
 
     # render
     src/features/chams/animation.cpp
