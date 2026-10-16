@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: Anti-Aim Observer + Angle Placement Helper v1.2.4
+## Fork preview: Anti-Aim Observer + Geometry Diagnostics v1.2.5
 
 Optional passive orientation alerts on player ESP, a **Duel History**
 diagnostic window, and a **Threat Vision Zone** overlay. The zone projects
@@ -40,6 +40,11 @@ Windows builds are published on [Releases](https://github.com/aguamemnon/vesta/r
 shows local wall distance and lateral floor markers, based solely on map
 geometry. It never reads adversary data, moves the player or adjusts aim.
 See [the helper documentation](docs/angle-placement-helper.md) for limits.
+
+**v1.2.5 fixes:** L/R placement markers now have a screen-space fallback;
+Threat Vision uses enemy positions without requiring a fully projected skeleton,
+and shows a visible status line and approximate eye-level rays if ground
+projection or map collision is unavailable.
 
 ## Quick start
 
