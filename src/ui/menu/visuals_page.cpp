@@ -159,24 +159,17 @@ void draw_players_tab()
     card("skeleton", "SKELETON & HITBOXES", 7,
          [&]
          {
-             // Optional projection of enemy horizontal view sectors.
-             toggle_popup_row("Threat Vision Zone", p.m_threat_vision.enabled, 11,
+             // Compact mode: no geometry raycasting on the render thread.
+             toggle_popup_row("Threat Direction (FPS-safe)", p.m_threat_vision.enabled, 5,
                               [&]
                               {
-                                  toggle_row("Clip to map walls", p.m_threat_vision.clip_to_walls);
                                   toggle_row("Suspected enemies only", p.m_threat_vision.suspects_only);
-                                  toggle_row("Fill danger sector", p.m_threat_vision.filled);
                                   slider_row("Half angle", p.m_threat_vision.half_angle_deg,
-                                             5.0f, 85.0f, " deg", 1.0f);
-                                  slider_row("Range", p.m_threat_vision.distance_units,
-                                             150.0f, 2000.0f, " u", 25.0f);
-                                  slider_row("Ray count", p.m_threat_vision.rays, 6, 24);
-                                  slider_row("Max enemies", p.m_threat_vision.max_targets, 1, 8);
-                                  slider_row("Refresh", p.m_threat_vision.refresh_seconds,
-                                             0.08f, 0.8f, " s", 0.02f);
-                                  color_row("Normal sector", p.m_threat_vision.normal_color);
-                                  color_row("Suspect sector", p.m_threat_vision.suspect_color);
-                                  color_row("Repeated anomaly sector", p.m_threat_vision.repeated_color);
+                                             5.0f, 25.0f, " deg", 1.0f);
+                                  slider_row("Line length", p.m_threat_vision.distance_units,
+                                             40.0f, 160.0f, " u", 5.0f);
+                                  color_row("Normal color", p.m_threat_vision.normal_color);
+                                  color_row("Suspect color", p.m_threat_vision.suspect_color);
                               });
              toggle_color_row("Show Skeleton", p.m_skeleton.enabled, p.m_skeleton.visible_color);
              toggle_color_row("Show Head Circle", p.m_head_circle.enabled, p.m_head_circle.color);
