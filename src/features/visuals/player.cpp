@@ -190,6 +190,47 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         return;
     }
 
+    // Select a bounded set of nearby enemies before the ESP draw loop, so
+    // collision-ray work cannot scale with the entire player list.
+    std::unordered_set<std::uintptr_t> threat_targets{};
+    if (cfg.m_threat_vision.enabled)
+    {
+        const auto level_name = frame->level ? *frame->level : std::string{};
+        if (m_threat_vision_level != level_name)
+        {
+            m_threat_vision_cache.clear();
+            m_threat_vision_level = level_name;
+        }
+        for (auto it = m_threat_vision_cache.begin(); it != m_threat_vision_cache.end();)
+        {
+            if (captured_at - it->second.updated_at > 3.0 || it->second.updated_at > captured_at)
+                it = m_threat_vision_cache.erase(it);
+            else
+                ++it;
+        }
+        const auto local_eye = frame->camera.origin;
+        std::vector<std::pair<float, std::uintptr_t>> closest{};
+        closest.reserve(frame->players.size());
+        for (const auto& candidate : frame->players)
+        {
+            if (candidate.source_index >= frame->world->size() || candidate.reused_after_read_failure ||
+                !candidate.bones.is_valid())
+                continue;
+            const auto& enemy = (*frame->world)[candidate.source_index];
+            if (!enemy.pawn || enemy.health <= 0 || enemy.eye_angles_fallback ||
+                !enemy.legit_visible || !game::local_player().is_enemy(enemy.team))
+                continue;
+            const auto dist = (enemy.origin - local_eye).length_sqr();
+            if (!std::isfinite(dist) || dist > 2400.0f * 2400.0f)
+                continue;
+            closest.emplace_back(dist, enemy.pawn);
+        }
+        std::sort(closest.begin(), closest.end());
+        const auto max_targets = static_cast<std::size_t>(std::clamp(cfg.m_threat_vision.max_targets, 1, 8));
+        for (std::size_t index = 0; index < std::min(max_targets, closest.size()); ++index)
+            threat_targets.insert(closest[index].second);
+    }
+
     active_bomb_info bomb_info{};
     if (cfg.m_info_flags.enabled && cfg.m_info_flags.has(config::visual_profile::player::info_flags::flag::bomb_damage))
     {
@@ -286,6 +327,10 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
              aa_state.alert == vesta_aa::Alert::RepeatedAnomalies);
         const auto aa_color = aa_state.alert == vesta_aa::Alert::RepeatedAnomalies
             ? cfg.m_anti_aim.repeated_color : cfg.m_anti_aim.suspicious_color;
+
+        if (cfg.m_threat_vision.enabled && threat_targets.contains(player.pawn) &&
+            !pose.reused_after_read_failure)
+            paint_threat_vision_zone(player_draw, player, cfg.m_threat_vision, aa_state.alert, captured_at);
 
         if (cfg.m_box.enabled)
         {
