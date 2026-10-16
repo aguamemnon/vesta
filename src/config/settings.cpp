@@ -1865,6 +1865,32 @@ static void from_json(const json& j, general_profile::nade_helper& n)
     n.lock_time_ms = std::clamp(n.lock_time_ms, 0, 250);
 }
 
+static void to_json(json& j, const general_profile::angle_placement_helper& a)
+{
+    j = json{{"enabled", a.enabled},
+             {"show_lateral_markers", a.show_lateral_markers},
+             {"show_wall_distance", a.show_wall_distance},
+             {"scan_distance", a.scan_distance},
+             {"marker_spacing", a.marker_spacing},
+             {"refresh_seconds", a.refresh_seconds},
+             {"color", a.color}};
+}
+
+static void from_json(const json& j, general_profile::angle_placement_helper& a)
+{
+    read_field(j, "enabled", a.enabled);
+    read_field(j, "show_lateral_markers", a.show_lateral_markers);
+    read_field(j, "show_wall_distance", a.show_wall_distance);
+    read_field(j, "scan_distance", a.scan_distance);
+    read_field(j, "marker_spacing", a.marker_spacing);
+    read_field(j, "refresh_seconds", a.refresh_seconds);
+    read_field(j, "color", a.color);
+    a.scan_distance = std::isfinite(a.scan_distance) ? std::clamp(a.scan_distance, 64.0f, 300.0f) : 192.0f;
+    a.marker_spacing = std::isfinite(a.marker_spacing) ? std::clamp(a.marker_spacing, 20.0f, 96.0f) : 40.0f;
+    a.refresh_seconds = std::isfinite(a.refresh_seconds) ?
+                            std::clamp(a.refresh_seconds, 0.10f, 1.0f) : 0.25f;
+}
+
 static void to_json(json& j, const general_profile::bunny_hop& b)
 {
     j = json{{"enabled", b.enabled}, {"activation_key", b.activation_key}};
@@ -1948,6 +1974,7 @@ static void to_json(json& j, const general_profile& m)
              {"m_bomb_info", m.m_bomb_info},
              {"m_bunny_hop", m.m_bunny_hop},
              {"m_edge_jump", m.m_edge_jump},
+             {"m_angle_placement", m.m_angle_placement},
              {"m_game_controls", m.m_game_controls},
              {"m_auto_stop", m.m_auto_stop},
              {"language", m.language},
@@ -1982,6 +2009,7 @@ static void from_json(const json& j, general_profile& m)
     read_field(j, "m_bomb_info", m.m_bomb_info);
     read_field(j, "m_bunny_hop", m.m_bunny_hop);
     read_field(j, "m_edge_jump", m.m_edge_jump);
+    read_field(j, "m_angle_placement", m.m_angle_placement);
     read_field(j, "m_game_controls", m.m_game_controls);
     read_field(j, "m_auto_stop", m.m_auto_stop);
     read_field(j, "language", m.language);
