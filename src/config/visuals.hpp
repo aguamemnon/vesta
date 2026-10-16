@@ -268,6 +268,7 @@ struct visual_profile
         {
             bool enabled{false};
             bool show_warning{true};
+            bool record_duels{false};
             bool highlight_box{false};
             foundation::rgba suspicious_color{255, 165, 45, 255};
             foundation::rgba repeated_color{240, 75, 65, 255};
