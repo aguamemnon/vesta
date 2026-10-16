@@ -274,6 +274,24 @@ struct visual_profile
             foundation::rgba repeated_color{240, 75, 65, 255};
         } m_anti_aim{};
 
+        // A conceptual horizontal view sector at the target's feet, not an
+        // authoritative visibility or line-of-fire check.
+        struct threat_vision_zone
+        {
+            bool enabled{false};
+            bool clip_to_walls{true};
+            bool suspects_only{false};
+            bool filled{true};
+            float half_angle_deg{35.0f};
+            float distance_units{900.0f};
+            int rays{12};
+            int max_targets{4};
+            float refresh_seconds{0.25f};
+            foundation::rgba normal_color{95, 170, 225, 185};
+            foundation::rgba suspect_color{255, 165, 45, 210};
+            foundation::rgba repeated_color{240, 75, 65, 220};
+        } m_threat_vision{};
+
     } m_player{};
 
     struct item
