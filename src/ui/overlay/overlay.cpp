@@ -481,11 +481,13 @@ bool overlay_t::pace_frame(foundation::frame_schedule& clock, HANDLE timer)
                                      ? static_cast<std::uint32_t>(general.fps_limit)
                                      : (m_frame_latency_unreliable ? std::max(m_window_tracker.refresh_rate(), 60u)
                                                                    : 0u);
-    // Rendering a full transparent DX11 frame at 240+ Hz needlessly
-    // competes with the game for GPU time. Eco mode takes the smaller user
-    // cap, or 90 Hz if no cap is configured.
+    // A transparent DX11 overlay should not render more frequently than
+    // the monitor can display, particularly on 60/75 Hz screens.
+    // Preserve the user's lower cap and never change the game's frame limit.
+    const auto refresh = m_window_tracker.refresh_rate();
+    const auto performance_cap = refresh ? std::min(refresh, 90u) : 90u;
     const auto rate = general.performance_mode
-                          ? (configured_rate ? std::min(configured_rate, 90u) : 90u)
+                          ? (configured_rate ? std::min(configured_rate, performance_cap) : performance_cap)
                           : configured_rate;
     clock.set_rate(rate, std::chrono::steady_clock::now());
     if (m_frame_latency_waitable && !m_frame_latency_unreliable &&
