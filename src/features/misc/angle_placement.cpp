@@ -56,17 +56,22 @@ void angle_placement_helper_t::resample(const foundation::vec3& eye,
     wall_found_ = true;
     wall_point_ = wall.end_pos;
     wall_distance_ = (wall_point_ - eye).length();
-    center_valid_ = floor_below(eye, center_ground_);
+    // The previous centre marker sat directly below the camera, which
+    // generally projects behind the near plane. Move the visual footprint
+    // forwards along the clear side of the wall.
+    const auto lookahead = std::clamp(wall_distance_ * 0.55f, 8.0f, 120.0f);
+    const auto marker_eye = eye + forward * lookahead;
+    center_valid_ = floor_below(marker_eye, center_ground_);
 
     const foundation::vec3 tangent{
         -flat_normal.y / std::sqrt(len_sqr), flat_normal.x / std::sqrt(len_sqr), 0.0f};
 
     const auto try_lateral = [&](const foundation::vec3& direction, foundation::vec3& output) -> bool
     {
-        const auto candidate_eye = eye + direction * spacing;
+        const auto candidate_eye = marker_eye + direction * spacing;
         // A sphere clearance check avoids drawing directly through narrow
         // walls. This is a geometric preview, not a navigation guarantee.
-        if (simulation::collision().sweep_sphere(eye, candidate_eye, 11.0f).hit)
+        if (simulation::collision().sweep_sphere(marker_eye, candidate_eye, 11.0f).hit)
             return false;
         return floor_below(candidate_eye, output);
     };
@@ -127,24 +132,47 @@ void angle_placement_helper_t::on_render(render::draw::draw_list& draw_list)
         }
     }
 
-    if (!cfg.show_lateral_markers || !center_valid_)
+    if (!cfg.show_lateral_markers)
         return;
 
-    const auto start = game::camera().project(center_ground_);
-    if (!screen_valid(start))
-        return;
-
-    const auto draw_marker = [&](const foundation::vec3& ground)
+    // Always provide an onscreen visual at the wall anchor: the 3D floor
+    // markers may disappear due to stairs, collision gaps or camera clipping.
+    // The L/R indications are a local-geometry diagnostic, not a path.
+    const auto* font = render::fonts().esp_text_11;
+    const auto annotate = [&](float x, float y, std::string_view caption, bool available)
     {
-        const auto destination = game::camera().project(ground);
-        if (!screen_valid(destination))
-            return;
-        draw_list.add_line(start.x, start.y, destination.x, destination.y, cfg.color, 2.0f);
-        draw_list.add_circle(destination.x, destination.y, 7.0f, cfg.color, 16, 2.0f);
+        const render::draw::rgba tint = available ? cfg.color : render::draw::rgba{250, 105, 90, 225};
+        draw_list.add_circle(x, y, 7.0f, tint, 16, 2.0f);
+        if (font)
+            draw_list.add_text(x - 13.0f, y + 10.0f, caption, font, tint,
+                               render::draw::text_style::outlined);
     };
-    if (left_valid_)
-        draw_marker(left_ground_);
-    if (right_valid_)
-        draw_marker(right_ground_);
+
+    const auto start = center_valid_ ? game::camera().project(center_ground_) : foundation::vec2{};
+    const auto start_visible = center_valid_ && screen_valid(start);
+    const auto draw_side = [&](const foundation::vec3& ground, bool available, float side,
+                               std::string_view caption)
+    {
+        if (available && start_visible)
+        {
+            const auto destination = game::camera().project(ground);
+            if (screen_valid(destination))
+            {
+                draw_list.add_line(start.x, start.y, destination.x, destination.y,
+                                   cfg.color, 2.0f);
+                annotate(destination.x, destination.y, caption, true);
+                return;
+            }
+        }
+        // Fallback is anchored beside the already-projected wall hit point,
+        // hence remains visible even when the local ground is not projectable.
+        const auto x = anchor.x + side * 55.0f;
+        const auto y = anchor.y + 35.0f;
+        draw_list.add_line(anchor.x, anchor.y, x, y, cfg.color, 1.0f);
+        annotate(x, y, available ? caption : "X", available);
+    };
+
+    draw_side(left_ground_, left_valid_, -1.0f, "L");
+    draw_side(right_ground_, right_valid_, 1.0f, "R");
 }
 } // namespace features::misc
