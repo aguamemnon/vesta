@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: Anti-Aim Observer v1.2.3
+## Fork preview: Anti-Aim Observer + Angle Placement Helper v1.2.4
 
 Optional passive orientation alerts on player ESP, a **Duel History**
 diagnostic window, and a **Threat Vision Zone** overlay. The zone projects
@@ -35,6 +35,11 @@ server-side visibility or an accurate gunfire danger volume. See the
 [Threat Vision Zone details](docs/threat-vision-zone.md) and
 [Duel History documentation](docs/anti-aim-duel-history.md).
 Windows builds are published on [Releases](https://github.com/aguamemnon/vesta/releases).
+
+**New in 1.2.4:** a separate, opt-in **Misc → Movement → Angle Placement Helper**
+shows local wall distance and lateral floor markers, based solely on map
+geometry. It never reads adversary data, moves the player or adjusts aim.
+See [the helper documentation](docs/angle-placement-helper.md) for limits.
 
 ## Quick start
 
