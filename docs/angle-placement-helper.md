@@ -1,4 +1,4 @@
-# Angle Placement Helper — Misc (v1.2.4 preview)
+# Angle Placement Helper — Misc (v1.2.5 corrective preview)
 
 This prototype is a **passive, local geometry overlay**. It does not access
 enemy locations, attacker status, crosshair targets, Aim Assist settings or
@@ -44,3 +44,9 @@ Its settings are kept under `misc.m_angle_placement` in saved profiles.
 4. Verify side markers disappear when lateral clearance is blocked.
 5. Test crouching, changing maps, and collision-model initialization.
 6. Confirm menu setting persistence and unchanged Aim Assist operation.
+
+## v1.2.5 projection fix
+
+- Previously the first floor marker was directly below the camera and often behind the projection near plane. It is now drawn ahead, on the safe side of the wall.
+- If the floor or lateral candidate is not projectable, screen-anchored L/R indicators appear next to the wall hit marker. A red X indicates missing floor or blocked clearance.
+- L/R indicate geometrical lateral directions; they are not confirmed accessible navigation destinations and do not score enemy sightlines.
