@@ -9,6 +9,7 @@
 #include <game/state/pose.hpp>
 #include <config/settings.hpp>
 #include <features/visuals/anti_aim_observer.hpp>
+#include <features/visuals/duel_history.hpp>
 #include <array>
 #include <atomic>
 #include <chrono>
