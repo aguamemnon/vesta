@@ -1,8 +1,10 @@
-name: Build
+name: Build and publish Windows executable
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'feature/**'
   pull_request:
   workflow_dispatch:
 
@@ -11,6 +13,7 @@ permissions:
 
 jobs:
   windows:
+    name: Windows x64 Release build
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v5
@@ -18,9 +21,53 @@ jobs:
         run: cmake --preset release
       - name: Build
         run: cmake --build --preset release --parallel
-      - name: Upload executable
+      - name: Check executable exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath 'build/bin/vesta.exe')) {
+            throw 'Expected build/bin/vesta.exe missing'
+          }
+      - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
           name: vesta-windows-x64
           path: build/bin/vesta.exe
           if-no-files-found: error
+
+  publish:
+    name: Publish versioned GitHub release
+    needs: windows
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: vesta-windows-x64
+          path: dist
+      - name: Publish compiled executable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s dist/vesta.exe
+          version=$(sed -n -E 's/^project\(vesta VERSION ([^ ]+).*/\1/p' CMakeLists.txt | head -n 1)
+          test -n "$version"
+          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            channel=main
+            label="Release"
+            prerelease=()
+          else
+            channel=preview
+            label="Preview"
+            prerelease=(--prerelease)
+          fi
+          tag="v${version}-${channel}.${GITHUB_RUN_NUMBER}"
+          ( cd dist && sha256sum vesta.exe > SHA256SUMS.txt )
+          notes="Compiled for Windows x64 from commit \`$GITHUB_SHA\` on branch \`$GITHUB_REF_NAME\`. Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. SHA256 included. Experimental detection does not prove cheating."
+          gh release create "$tag" dist/vesta.exe dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Vesta $label $tag" --notes "$notes" "${prerelease[@]}"
