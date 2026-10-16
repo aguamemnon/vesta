@@ -18,39 +18,26 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: Rendering Performance Mode v1.2.7
+## Fork preview: Renderer stabilization v1.2.8
 
-Optional passive orientation alerts on player ESP, a **Duel History**
-diagnostic window, and a **Threat Vision Zone** overlay. The zone projects
-an opponent's horizontal eye-angle sector at their feet, optionally clips it
-to nearby map geometry, and can use the orange/red anomaly colors.
+The **Performance Mode** setting at **Misc → General → Engine** keeps
+Vesta's external DX11 overlay independent of CS2's own FPS limit.
 
-Under **Visuals → Players → Skeleton & Hitboxes**, enable
-**Threat Vision Zone**. Its settings include half-angle, range, wall clipping,
-render transparency, refresh, nearest target count and an optional
-suspects-only filter. The feature is disabled by default.
+- The overlay runs at the lower of **90 Hz**, your display refresh, and
+  any lower user FPS limit; remote skeleton/pose sampling remains at **60 Hz**.
+- 2D bloom CPU collection and the extra postprocessing pass are disabled in
+  Performance Mode. Turn it off to compare original behavior.
+- v1.2.8 additionally **coalesces settings writes** outside the menu to avoid
+  repeatedly writing to disk on the render thread while a script edits settings.
+- [Renderer performance details and A/B testing](docs/render-performance.md).
 
-This is an approximate horizontal view direction display, **not** real
-server-side visibility or an accurate gunfire danger volume. See the
-[Threat Vision Zone details](docs/threat-vision-zone.md) and
-[Duel History documentation](docs/anti-aim-duel-history.md).
-Windows builds are published on [Releases](https://github.com/aguamemnon/vesta/releases).
+Other experimental, optional features remain available: Anti-Aim Observer,
+Duel History, compact **Threat Direction** (maximum one target, no collision
+raycasts in the draw loop), and **Wall Geometry Probe** in Misc. The latter
+does not calculate an optimal peek route. See [orientation diagnostics](docs/anti-aim-duel-history.md)
+and [local geometry limitations](docs/angle-placement-helper.md).
 
-**New in 1.2.4:** a separate, opt-in **Misc → Movement → Angle Placement Helper**
-shows local wall distance and lateral floor markers, based solely on map
-geometry. It never reads adversary data, moves the player or adjusts aim.
-See [the helper documentation](docs/angle-placement-helper.md) for limits.
-
-**v1.2.5 fixes:** geometric overlay fallback indicators.
-
-**v1.2.6:** Threat Vision was replaced with a faint, short **Threat Direction**
-indicator for at most one nearby opponent (no collision tracing or filled polygons).
-
-**v1.2.7:** **Misc → General → Engine → Performance Mode (90/60 Hz)** is
-enabled by default. It reduces transparent overlay updates to at most 90 Hz,
-limits synchronous skeleton reads to 60 Hz, and disables extra 2D bloom
-postprocessing. Switch it off for a direct A/B comparison. See
-[rendering performance and benchmark guidance](docs/render-performance.md).
+Windows builds are published through [GitHub Releases](https://github.com/aguamemnon/vesta/releases).
 
 ## Quick start
 
