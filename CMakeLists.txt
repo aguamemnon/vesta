@@ -121,6 +121,7 @@ set(vesta_sources
 	src/features/visuals/hitsound.cpp
     src/features/visuals/item.cpp
     src/features/visuals/duel_history.cpp
+    src/features/visuals/threat_vision_zone.cpp
     src/features/visuals/anti_aim_observer.cpp
     src/features/visuals/player.cpp
     src/features/visuals/projectile.cpp
