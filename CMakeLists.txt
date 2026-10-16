@@ -120,6 +120,7 @@ set(vesta_sources
     src/features/visuals/grenade_prediction.cpp
 	src/features/visuals/hitsound.cpp
     src/features/visuals/item.cpp
+    src/features/visuals/anti_aim_observer.cpp
     src/features/visuals/player.cpp
     src/features/visuals/projectile.cpp
     src/features/visuals/radar.cpp
