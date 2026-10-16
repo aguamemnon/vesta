@@ -77,6 +77,15 @@ void draw_players_tab()
                                   color_row("Fill Occluded Color", p.m_box.fill_occluded_color);
                               });
          });
+    card("anti_aim_observer", "ANTI-AIM OBSERVER (EXPERIMENTAL)", 5,
+         [&]
+         {
+             toggle_row("Enable AA observations", p.m_anti_aim.enabled);
+             toggle_row("Show AA? warning under weapon", p.m_anti_aim.show_warning);
+             toggle_row("Highlight suspect box", p.m_anti_aim.highlight_box);
+             color_row("Suspect Color", p.m_anti_aim.suspicious_color);
+             color_row("Repeated Anomaly Color", p.m_anti_aim.repeated_color);
+         });
     card("details", "DETAILS", 8,
          [&]
          {
