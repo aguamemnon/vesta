@@ -137,6 +137,11 @@ Assessment AntiAimObserver::assess(const Track& track) {
     return out;
 }
 
+Assessment AntiAimObserver::lastAssessment(PlayerKey key) const {
+    if (const auto it = tracks_.find(key); it != tracks_.end())
+        return it->second.last_assessment;
+    return {};
+}
 void AntiAimObserver::forget(PlayerKey key) { tracks_.erase(key); }
 void AntiAimObserver::clear() { tracks_.clear(); transitions_.clear(); }
 std::size_t AntiAimObserver::trackedPlayers() const noexcept { return tracks_.size(); }
