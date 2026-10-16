@@ -18,18 +18,23 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: Anti-Aim Observer v1.2.2
+## Fork preview: Anti-Aim Observer v1.2.3
 
-This fork adds optional passive orientation alerts on the player ESP and a
-**Duel History** diagnostic window. It records observed enemy health/firing
-changes, local health changes, and Aim Assist target selections with angular
-error, all without claiming to know the attacker of an observed death.
+Optional passive orientation alerts on player ESP, a **Duel History**
+diagnostic window, and a **Threat Vision Zone** overlay. The zone projects
+an opponent's horizontal eye-angle sector at their feet, optionally clips it
+to nearby map geometry, and can use the orange/red anomaly colors.
 
-Enable the options under **Visuals → Players**, then open **Duel History** to
-inspect and export a bounded CSV log. The observer and journal are disabled
-by default. See [Duel History documentation](docs/anti-aim-duel-history.md).
-Windows pre-release executables are built via GitHub Actions and distributed
-through this fork's [Releases](https://github.com/aguamemnon/vesta/releases).
+Under **Visuals → Players → Skeleton & Hitboxes**, enable
+**Threat Vision Zone**. Its settings include half-angle, range, wall clipping,
+render transparency, refresh, nearest target count and an optional
+suspects-only filter. The feature is disabled by default.
+
+This is an approximate horizontal view direction display, **not** real
+server-side visibility or an accurate gunfire danger volume. See the
+[Threat Vision Zone details](docs/threat-vision-zone.md) and
+[Duel History documentation](docs/anti-aim-duel-history.md).
+Windows builds are published on [Releases](https://github.com/aguamemnon/vesta/releases).
 
 ## Quick start
 
