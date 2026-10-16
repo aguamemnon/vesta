@@ -979,6 +979,7 @@ static void to_json(json& j, const visual_profile::player& p)
              {"m_weapon", p.m_weapon},
              {"m_anti_aim", json{{"enabled", p.m_anti_aim.enabled},
                                   {"show_warning", p.m_anti_aim.show_warning},
+                                  {"record_duels", p.m_anti_aim.record_duels},
                                   {"highlight_box", p.m_anti_aim.highlight_box},
                                   {"suspicious_color", p.m_anti_aim.suspicious_color},
                                   {"repeated_color", p.m_anti_aim.repeated_color}}}};
@@ -1039,6 +1040,7 @@ static void from_json(const json& j, visual_profile::player& p)
         const auto& a = j.at("m_anti_aim");
         read_field(a, "enabled", p.m_anti_aim.enabled);
         read_field(a, "show_warning", p.m_anti_aim.show_warning);
+        read_field(a, "record_duels", p.m_anti_aim.record_duels);
         read_field(a, "highlight_box", p.m_anti_aim.highlight_box);
         read_field(a, "suspicious_color", p.m_anti_aim.suspicious_color);
         read_field(a, "repeated_color", p.m_anti_aim.repeated_color);
