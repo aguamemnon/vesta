@@ -240,9 +240,44 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         render::draw::draw_list player_draw{draw_list.m_im_draw_list, opacity};
         render::draw::draw_list legit_bright_draw{draw_list.m_im_draw_list, player.legit_opacity};
 
+        // Passive orientation diagnostics. No aim commands are modified.
+        vesta_aa::Assessment aa_state{};
+        if (cfg.m_anti_aim.enabled)
+        {
+            vesta_aa::OrientationSample sample{};
+            sample.timestamp_sec =
+                std::chrono::duration<double>(frame->timestamp.time_since_epoch()).count();
+            sample.simulation_tick = player.simulation_tick;
+            sample.eye_yaw_deg = player.eye_angles.y;
+            sample.eye_pitch_deg = player.eye_angles.x;
+            sample.velocity_units_s = std::sqrt(player.velocity.x * player.velocity.x +
+                                                player.velocity.y * player.velocity.y +
+                                                player.velocity.z * player.velocity.z);
+            sample.angles_valid = !player.eye_angles_fallback && player.simulation_tick > 0;
+            sample.simulated_update = true; // Duplicated simulation ticks rejected by observer.
+            sample.fallback_angles = player.eye_angles_fallback;
+            sample.reused_bones = pose.reused_after_read_failure;
+            const auto stable_id = player.steamid ? player.steamid :
+                static_cast<std::uint64_t>(player.controller);
+            aa_state = m_aa_observer.observe({stable_id, static_cast<std::uint64_t>(player.pawn)}, sample);
+        }
+        const auto aa_warning = cfg.m_anti_aim.enabled && !pose.reused_after_read_failure &&
+            (aa_state.alert == vesta_aa::Alert::Suspicious ||
+             aa_state.alert == vesta_aa::Alert::RepeatedAnomalies);
+        const auto aa_color = aa_state.alert == vesta_aa::Alert::RepeatedAnomalies
+            ? cfg.m_anti_aim.repeated_color : cfg.m_anti_aim.suspicious_color;
+
         if (cfg.m_box.enabled)
         {
-            paint_frame(player_draw, bounds, cfg.m_box, player.is_visible);
+            if (aa_warning && cfg.m_anti_aim.highlight_box)
+            {
+                auto highlighted = cfg.m_box;
+                highlighted.visible_color = aa_color;
+                highlighted.occluded_color = aa_color;
+                paint_frame(player_draw, bounds, highlighted, player.is_visible);
+            }
+            else
+                paint_frame(player_draw, bounds, cfg.m_box, player.is_visible);
         }
 
         if (cfg.m_skeleton.enabled)
@@ -278,6 +313,19 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         if (cfg.m_weapon.enabled && !player.weapon.name.empty())
         {
             paint_weapon_label(player_draw, bounds, player, cfg.m_weapon);
+        }
+
+        if (aa_warning && cfg.m_anti_aim.show_warning)
+        {
+            const auto* font = render::fonts().esp_text_11;
+            if (font)
+            {
+                constexpr std::string_view label = "AA?";
+                const auto [width, height] = render::draw::measure_text(label, font);
+                const auto x = std::floor((bounds.min.x + bounds.max.x - width) * 0.5f);
+                const auto y = std::floor(bounds.max.y + 29.0f);
+                player_draw.add_text(x, y, label, font, aa_color, render::draw::text_style::outlined);
+            }
         }
 
         if (cfg.m_info_flags.enabled || player.invulnerable)
