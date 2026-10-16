@@ -264,6 +264,15 @@ struct visual_profile
             } ammo{};
         } m_weapon{};
 
+        struct anti_aim_indicator
+        {
+            bool enabled{false};
+            bool show_warning{true};
+            bool highlight_box{false};
+            foundation::rgba suspicious_color{255, 165, 45, 255};
+            foundation::rgba repeated_color{240, 75, 65, 255};
+        } m_anti_aim{};
+
     } m_player{};
 
     struct item
