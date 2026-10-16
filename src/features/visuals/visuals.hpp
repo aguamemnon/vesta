@@ -70,6 +70,23 @@ public:
 
 private:
     vesta_aa::AntiAimObserver m_aa_observer{};
+    struct threat_vision_cache
+    {
+        foundation::vec3 origin{};
+        float yaw{};
+        float distance{};
+        float half_angle{};
+        int rays{};
+        bool walls{};
+        bool ducked{};
+        double updated_at{-1.0};
+        std::vector<foundation::vec3> edge_points{};
+    };
+    std::unordered_map<std::uintptr_t, threat_vision_cache> m_threat_vision_cache{};
+    std::string m_threat_vision_level{};
+    void paint_threat_vision_zone(render::draw::draw_list& draw_list, const game::player_snapshot& player,
+                                  const config::visual_profile::player::threat_vision_zone& cfg,
+                                  vesta_aa::Alert status, double timestamp);
     void paint_frame(render::draw::draw_list& draw_list, const game::bounds_projector::data& bounds,
                      const config::visual_profile::player::box& cfg, bool is_visible);
     void paint_skeleton(render::draw::draw_list& draw_list, const game::skeleton_reader::data& bones,
