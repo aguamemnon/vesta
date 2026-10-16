@@ -976,7 +976,25 @@ static void to_json(json& j, const visual_profile::player& p)
              {"m_armor_bar", p.m_armor_bar},
              {"m_info_flags", p.m_info_flags},
              {"m_name", p.m_name},
-             {"m_weapon", p.m_weapon}};
+             {"m_weapon", p.m_weapon},
+             {"m_anti_aim", json{{"enabled", p.m_anti_aim.enabled},
+                                  {"show_warning", p.m_anti_aim.show_warning},
+                                  {"record_duels", p.m_anti_aim.record_duels},
+                                  {"highlight_box", p.m_anti_aim.highlight_box},
+                                  {"suspicious_color", p.m_anti_aim.suspicious_color},
+                                  {"repeated_color", p.m_anti_aim.repeated_color}}},
+             {"m_threat_vision", json{{"enabled", p.m_threat_vision.enabled},
+                                      {"clip_to_walls", p.m_threat_vision.clip_to_walls},
+                                      {"suspects_only", p.m_threat_vision.suspects_only},
+                                      {"filled", p.m_threat_vision.filled},
+                                      {"half_angle_deg", p.m_threat_vision.half_angle_deg},
+                                      {"distance_units", p.m_threat_vision.distance_units},
+                                      {"rays", p.m_threat_vision.rays},
+                                      {"max_targets", p.m_threat_vision.max_targets},
+                                      {"refresh_seconds", p.m_threat_vision.refresh_seconds},
+                                      {"normal_color", p.m_threat_vision.normal_color},
+                                      {"suspect_color", p.m_threat_vision.suspect_color},
+                                      {"repeated_color", p.m_threat_vision.repeated_color}}}};
 }
 
 static void from_json(const json& j, visual_profile::player& p)
@@ -1029,6 +1047,46 @@ static void from_json(const json& j, visual_profile::player& p)
     read_field(j, "m_info_flags", p.m_info_flags);
     read_field(j, "m_name", p.m_name);
     read_field(j, "m_weapon", p.m_weapon);
+    if (j.contains("m_anti_aim"))
+    {
+        const auto& a = j.at("m_anti_aim");
+        read_field(a, "enabled", p.m_anti_aim.enabled);
+        read_field(a, "show_warning", p.m_anti_aim.show_warning);
+        read_field(a, "record_duels", p.m_anti_aim.record_duels);
+        read_field(a, "highlight_box", p.m_anti_aim.highlight_box);
+        read_field(a, "suspicious_color", p.m_anti_aim.suspicious_color);
+        read_field(a, "repeated_color", p.m_anti_aim.repeated_color);
+    }
+    if (j.contains("m_threat_vision"))
+    {
+        const auto& zone = j.at("m_threat_vision");
+        read_field(zone, "enabled", p.m_threat_vision.enabled);
+        read_field(zone, "clip_to_walls", p.m_threat_vision.clip_to_walls);
+        read_field(zone, "suspects_only", p.m_threat_vision.suspects_only);
+        read_field(zone, "filled", p.m_threat_vision.filled);
+        read_field(zone, "half_angle_deg", p.m_threat_vision.half_angle_deg);
+        read_field(zone, "distance_units", p.m_threat_vision.distance_units);
+        read_field(zone, "rays", p.m_threat_vision.rays);
+        read_field(zone, "max_targets", p.m_threat_vision.max_targets);
+        read_field(zone, "refresh_seconds", p.m_threat_vision.refresh_seconds);
+        read_field(zone, "normal_color", p.m_threat_vision.normal_color);
+        read_field(zone, "suspect_color", p.m_threat_vision.suspect_color);
+        read_field(zone, "repeated_color", p.m_threat_vision.repeated_color);
+    }
+    // v1.2.6 performance migration: older profiles may request eight
+    // 24-ray wall-clipped 2000u polygons, which caused render-thread stalls.
+    // The compact renderer is intentionally bounded and ignores legacy fields.
+    p.m_threat_vision.clip_to_walls = false;
+    p.m_threat_vision.filled = false;
+    p.m_threat_vision.rays = 2;
+    p.m_threat_vision.max_targets = 1;
+    p.m_threat_vision.half_angle_deg =
+        std::isfinite(p.m_threat_vision.half_angle_deg) ?
+            std::clamp(p.m_threat_vision.half_angle_deg, 5.0f, 25.0f) : 12.0f;
+    p.m_threat_vision.distance_units =
+        std::isfinite(p.m_threat_vision.distance_units) ?
+            std::clamp(p.m_threat_vision.distance_units, 40.0f, 160.0f) : 95.0f;
+    p.m_threat_vision.refresh_seconds = 0.5f;
 
     if (j.contains("m_bomb_damage") && (!j.contains("m_info_flags") || !j.at("m_info_flags").contains("bomb_damage")))
     {
@@ -1816,6 +1874,32 @@ static void from_json(const json& j, general_profile::nade_helper& n)
     n.lock_time_ms = std::clamp(n.lock_time_ms, 0, 250);
 }
 
+static void to_json(json& j, const general_profile::angle_placement_helper& a)
+{
+    j = json{{"enabled", a.enabled},
+             {"show_lateral_markers", a.show_lateral_markers},
+             {"show_wall_distance", a.show_wall_distance},
+             {"scan_distance", a.scan_distance},
+             {"marker_spacing", a.marker_spacing},
+             {"refresh_seconds", a.refresh_seconds},
+             {"color", a.color}};
+}
+
+static void from_json(const json& j, general_profile::angle_placement_helper& a)
+{
+    read_field(j, "enabled", a.enabled);
+    read_field(j, "show_lateral_markers", a.show_lateral_markers);
+    read_field(j, "show_wall_distance", a.show_wall_distance);
+    read_field(j, "scan_distance", a.scan_distance);
+    read_field(j, "marker_spacing", a.marker_spacing);
+    read_field(j, "refresh_seconds", a.refresh_seconds);
+    read_field(j, "color", a.color);
+    a.scan_distance = std::isfinite(a.scan_distance) ? std::clamp(a.scan_distance, 64.0f, 300.0f) : 192.0f;
+    a.marker_spacing = std::isfinite(a.marker_spacing) ? std::clamp(a.marker_spacing, 20.0f, 96.0f) : 40.0f;
+    a.refresh_seconds = std::isfinite(a.refresh_seconds) ?
+                            std::clamp(a.refresh_seconds, 0.10f, 1.0f) : 0.25f;
+}
+
 static void to_json(json& j, const general_profile::bunny_hop& b)
 {
     j = json{{"enabled", b.enabled}, {"activation_key", b.activation_key}};
@@ -1899,6 +1983,7 @@ static void to_json(json& j, const general_profile& m)
              {"m_bomb_info", m.m_bomb_info},
              {"m_bunny_hop", m.m_bunny_hop},
              {"m_edge_jump", m.m_edge_jump},
+             {"m_angle_placement", m.m_angle_placement},
              {"m_game_controls", m.m_game_controls},
              {"m_auto_stop", m.m_auto_stop},
              {"language", m.language},
@@ -1933,6 +2018,7 @@ static void from_json(const json& j, general_profile& m)
     read_field(j, "m_bomb_info", m.m_bomb_info);
     read_field(j, "m_bunny_hop", m.m_bunny_hop);
     read_field(j, "m_edge_jump", m.m_edge_jump);
+    read_field(j, "m_angle_placement", m.m_angle_placement);
     read_field(j, "m_game_controls", m.m_game_controls);
     read_field(j, "m_auto_stop", m.m_auto_stop);
     read_field(j, "language", m.language);

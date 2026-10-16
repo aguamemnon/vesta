@@ -288,13 +288,24 @@ void draw_grenades_tab()
 void draw_movement_tab()
 {
     auto& p = config::general_settings;
-    card("movement", "MOVEMENT", 2,
+    card("movement", "MOVEMENT", 3,
          [&]
          {
              toggle_popup_row("Enable Bunny Hop", p.m_bunny_hop.enabled, 1,
                               [&] { keybind_row("Activation Key", p.m_bunny_hop.activation_key); });
              toggle_popup_row("Enable Edge Jump", p.m_edge_jump.enabled, 1,
                               [&] { keybind_row("Activation Key", p.m_edge_jump.activation_key); });
+             auto& guide = p.m_angle_placement;
+             toggle_popup_row("Wall Geometry Probe (experimental)", guide.enabled, 6,
+                              [&]
+                              {
+                                  toggle_row("Show wall distance", guide.show_wall_distance);
+                                  toggle_row("Show lateral markers", guide.show_lateral_markers);
+                                  slider_row("Wall scan distance", guide.scan_distance, 64.0f, 300.0f, " u", 8.0f);
+                                  slider_row("Marker spacing", guide.marker_spacing, 20.0f, 96.0f, " u", 4.0f);
+                                  slider_row("Refresh", guide.refresh_seconds, 0.10f, 1.0f, " s", 0.05f);
+                                  color_row("Guide color", guide.color);
+                              });
          });
     auto& keys = p.m_game_controls;
     card_in_column("game_keyboard", "GAME KEY BINDS", 7, 0,

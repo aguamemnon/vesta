@@ -264,6 +264,36 @@ struct visual_profile
             } ammo{};
         } m_weapon{};
 
+        struct anti_aim_indicator
+        {
+            bool enabled{false};
+            bool show_warning{true};
+            bool record_duels{false};
+            bool highlight_box{false};
+            foundation::rgba suspicious_color{255, 165, 45, 255};
+            foundation::rgba repeated_color{240, 75, 65, 255};
+        } m_anti_aim{};
+
+        // A conceptual horizontal view sector at the target's feet, not an
+        // authoritative visibility or line-of-fire check.
+        struct threat_vision_zone
+        {
+            bool enabled{false};
+            // Legacy fields remain for loading old profiles. The compact
+            // renderer does not use collision clipping or filled polygons.
+            bool clip_to_walls{false};
+            bool suspects_only{false};
+            bool filled{false};
+            float half_angle_deg{12.0f};
+            float distance_units{95.0f};
+            int rays{2};
+            int max_targets{1};
+            float refresh_seconds{0.5f};
+            foundation::rgba normal_color{95, 170, 225, 105};
+            foundation::rgba suspect_color{255, 165, 45, 115};
+            foundation::rgba repeated_color{240, 75, 65, 120};
+        } m_threat_vision{};
+
     } m_player{};
 
     struct item

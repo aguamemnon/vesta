@@ -21,6 +21,7 @@
 #include <config/library.hpp>
 #include <features/aimbot/aimbot.hpp>
 #include <features/misc/misc.hpp>
+#include <features/misc/angle_placement.hpp>
 #include <features/misc/auto_stop.hpp>
 #include <features/visuals/visuals.hpp>
 #include <features/visuals/event_log.hpp>
@@ -103,7 +104,7 @@ constexpr bool k_use_composition_backend = true;
            visuals.m_bomb.enabled || visuals.m_no_flash.enabled || visuals.m_no_smoke.enabled ||
            visuals.m_crosshair.enabled || (visuals.m_player.enabled && visuals.m_chams.enabled) ||
            visuals.m_radar.enabled || visuals.m_sound.enabled || misc.m_grenades.enabled ||
-           misc.m_nade_helper.enabled || misc.m_watermark.enabled || misc.m_spectator_list.enabled ||
+           misc.m_nade_helper.enabled || misc.m_angle_placement.enabled || misc.m_watermark.enabled || misc.m_spectator_list.enabled ||
            misc.m_event_log.enabled || misc.m_keybind_list.enabled || misc.m_bullet_tracers.enabled ||
            misc.m_hitmarker.enabled || misc.m_hitsound.enabled || misc.m_hitsound.show_damage ||
            (combat.aimbot_enabled && combat.aimbot_draw_fov) || combat.penetration_crosshair;
@@ -534,6 +535,7 @@ void overlay_t::draw_world(render::draw::draw_list& draw_list)
         features::visuals::crosshair().on_render(draw_list);
         features::visuals::grenade_prediction().on_render(draw_list);
         features::misc::nade_helper().on_render(draw_list);
+        features::misc::angle_placement_helper().on_render(draw_list);
         features::visuals::bullet_impacts().on_render(draw_list);
         features::aimbot::aim().on_render(draw_list);
     }

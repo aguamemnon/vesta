@@ -5,6 +5,7 @@
 #include <game/state/services.hpp>
 #include <features/chams/renderer.hpp>
 #include <features/visuals/visuals.hpp>
+#include <simulation/collision.hpp>
 
 namespace features::visuals
 {
@@ -175,10 +176,53 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
     if (cfg.spectator_sync && game::world().local_spectated())
         return;
 
+    // The history reads the same immutable presentation frame as the ESP.
+    // Events deliberately carry no invented attacker attribution.
+    const auto captured_at =
+        std::chrono::duration<double>(frame->timestamp.time_since_epoch()).count();
+    if (cfg.m_anti_aim.record_duels)
+        vesta_aa::duelHistory().observeLocal(
+            static_cast<std::uint64_t>(game::local_player().pawn()),
+            game::local_player().health(), captured_at, frame->camera.angles.y);
+
     const auto current_time = game::local_player().game_time();
     if (current_time <= 0.0f)
     {
         return;
+    }
+
+    // Lightweight direction preview: one nearest eligible opponent only.
+    // No map collision calls, no sorting, no heap buffers, no HUD status text.
+    if (cfg.m_threat_vision.enabled)
+    {
+        const game::player_snapshot* nearest = nullptr;
+        float nearest_distance_sqr = 2200.0f * 2200.0f;
+        const auto eye = frame->camera.origin;
+        for (const auto& candidate : *frame->world)
+        {
+            if (!candidate.pawn || candidate.health <= 0 || !candidate.legit_visible ||
+                !game::local_player().is_enemy(candidate.team) ||
+                !std::isfinite(candidate.origin.x) || !std::isfinite(candidate.origin.y) ||
+                !std::isfinite(candidate.origin.z) || !std::isfinite(candidate.eye_angles.y))
+                continue;
+            const auto d = (candidate.origin - eye).length_sqr();
+            if (std::isfinite(d) && d < nearest_distance_sqr)
+            {
+                nearest_distance_sqr = d;
+                nearest = &candidate;
+            }
+        }
+        if (nearest)
+        {
+            const auto id = nearest->steamid ? nearest->steamid :
+                static_cast<std::uint64_t>(nearest->controller);
+            const auto alert = m_aa_observer.lastAssessment(
+                {id, static_cast<std::uint64_t>(nearest->pawn)});
+            render::draw::draw_list light_draw{draw_list.m_im_draw_list,
+                                               std::clamp(nearest->legit_opacity, 0.0f, 1.0f)};
+            paint_threat_vision_zone(light_draw, *nearest, cfg.m_threat_vision,
+                                     alert.alert, captured_at);
+        }
     }
 
     active_bomb_info bomb_info{};
@@ -240,9 +284,55 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         render::draw::draw_list player_draw{draw_list.m_im_draw_list, opacity};
         render::draw::draw_list legit_bright_draw{draw_list.m_im_draw_list, player.legit_opacity};
 
+        // Passive orientation diagnostics. No aim commands are modified.
+        vesta_aa::Assessment aa_state{};
+        if (cfg.m_anti_aim.enabled)
+        {
+            vesta_aa::OrientationSample sample{};
+            sample.timestamp_sec =
+                std::chrono::duration<double>(frame->timestamp.time_since_epoch()).count();
+            sample.simulation_tick = player.simulation_tick;
+            sample.eye_yaw_deg = player.eye_angles.y;
+            sample.eye_pitch_deg = player.eye_angles.x;
+            sample.velocity_units_s = std::sqrt(player.velocity.x * player.velocity.x +
+                                                player.velocity.y * player.velocity.y +
+                                                player.velocity.z * player.velocity.z);
+            sample.angles_valid = !player.eye_angles_fallback && player.simulation_tick > 0;
+            sample.simulated_update = true; // Duplicated simulation ticks rejected by observer.
+            sample.fallback_angles = player.eye_angles_fallback;
+            sample.reused_bones = pose.reused_after_read_failure;
+            const auto stable_id = player.steamid ? player.steamid :
+                static_cast<std::uint64_t>(player.controller);
+            aa_state = m_aa_observer.observe({stable_id, static_cast<std::uint64_t>(player.pawn)}, sample);
+        }
+        if (cfg.m_anti_aim.record_duels && player.health > 0)
+        {
+            const auto stable_id = player.steamid ? player.steamid :
+                static_cast<std::uint64_t>(player.controller);
+            vesta_aa::duelHistory().observeEnemy({
+                {stable_id, static_cast<std::uint64_t>(player.pawn)},
+                player.display_name, captured_at, player.simulation_tick, player.health,
+                player.last_fired_time, player.eye_angles.y, frame->camera.angles.y,
+                aa_state.alert, aa_state.pattern, aa_state.anomaly_score
+            });
+        }
+        const auto aa_warning = cfg.m_anti_aim.enabled && !pose.reused_after_read_failure &&
+            (aa_state.alert == vesta_aa::Alert::Suspicious ||
+             aa_state.alert == vesta_aa::Alert::RepeatedAnomalies);
+        const auto aa_color = aa_state.alert == vesta_aa::Alert::RepeatedAnomalies
+            ? cfg.m_anti_aim.repeated_color : cfg.m_anti_aim.suspicious_color;
+
         if (cfg.m_box.enabled)
         {
-            paint_frame(player_draw, bounds, cfg.m_box, player.is_visible);
+            if (aa_warning && cfg.m_anti_aim.highlight_box)
+            {
+                auto highlighted = cfg.m_box;
+                highlighted.visible_color = aa_color;
+                highlighted.occluded_color = aa_color;
+                paint_frame(player_draw, bounds, highlighted, player.is_visible);
+            }
+            else
+                paint_frame(player_draw, bounds, cfg.m_box, player.is_visible);
         }
 
         if (cfg.m_skeleton.enabled)
@@ -280,9 +370,42 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
             paint_weapon_label(player_draw, bounds, player, cfg.m_weapon);
         }
 
+        if (aa_warning && cfg.m_anti_aim.show_warning)
+        {
+            const auto* font = render::fonts().esp_text_11;
+            if (font)
+            {
+                constexpr std::string_view label = "AA?";
+                const auto [width, height] = render::draw::measure_text(label, font);
+                const auto x = std::floor((bounds.min.x + bounds.max.x - width) * 0.5f);
+                const auto y = std::floor(bounds.max.y + 29.0f);
+                player_draw.add_text(x, y, label, font, aa_color, render::draw::text_style::outlined);
+            }
+        }
+
         if (cfg.m_info_flags.enabled || player.invulnerable)
         {
             paint_status_labels(player_draw, legit_bright_draw, bounds, player, cfg, bomb_info, current_time);
+        }
+    }
+
+    if (cfg.m_anti_aim.record_duels)
+    {
+        // Death snapshots can lose their pose/bone cache; still record those
+        // state transitions using the last measured AA status for that pawn.
+        for (const auto& player : *frame->world)
+        {
+            if (player.health > 0 || !game::local_player().is_enemy(player.team))
+                continue;
+            const auto stable_id = player.steamid ? player.steamid :
+                static_cast<std::uint64_t>(player.controller);
+            const vesta_aa::PlayerKey key{stable_id, static_cast<std::uint64_t>(player.pawn)};
+            const auto status = m_aa_observer.lastAssessment(key);
+            vesta_aa::duelHistory().observeEnemy({
+                key, player.display_name, captured_at, player.simulation_tick, player.health,
+                player.last_fired_time, player.eye_angles.y, frame->camera.angles.y,
+                status.alert, status.pattern, status.anomaly_score
+            });
         }
     }
 

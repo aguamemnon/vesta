@@ -3,6 +3,8 @@
 #include <game/input/bindings.hpp>
 #include <config/hotkeys.hpp>
 #include <features/visuals/visuals.hpp>
+#include <features/visuals/duel_history.hpp>
+#include <platform/windows/storage.hpp>
 #include <features/visuals/hitsound.hpp>
 #include <features/chams/preview.hpp>
 #include <features/chams/renderer.hpp>
@@ -25,6 +27,8 @@ namespace
 void draw_players_tab()
 {
     auto& p = config::visual_settings.m_player;
+    static bool show_duel_history = false;
+    static std::string export_message{};
     card("master", "MASTER", 2,
          [&]
          {
@@ -76,6 +80,22 @@ void draw_players_tab()
                                   color_row("Fill Visible Color", p.m_box.fill_visible_color);
                                   color_row("Fill Occluded Color", p.m_box.fill_occluded_color);
                               });
+         });
+    card("anti_aim_observer", "ANTI-AIM OBSERVER (EXPERIMENTAL)", 5,
+         [&]
+         {
+             toggle_row("Enable AA observations", p.m_anti_aim.enabled);
+             toggle_row("Show AA? warning under weapon", p.m_anti_aim.show_warning);
+             toggle_row("Highlight suspect box", p.m_anti_aim.highlight_box);
+             color_row("Suspect Color", p.m_anti_aim.suspicious_color);
+             color_row("Repeated Anomaly Color", p.m_anti_aim.repeated_color);
+         });
+    card("aa_duel_history", "DUEL HISTORY (PASSIVE)", 2,
+         [&]
+         {
+             toggle_row("Record combat observations", p.m_anti_aim.record_duels);
+             if (ImGui::Button("Open duel history"))
+                 show_duel_history = true;
          });
     card("details", "DETAILS", 8,
          [&]
@@ -136,9 +156,21 @@ void draw_players_tab()
                               chams_material_row_count(chams_cfg.invisible),
                               [&] { chams_material_rows(chams_cfg.invisible); });
          });
-    card("skeleton", "SKELETON & HITBOXES", 6,
+    card("skeleton", "SKELETON & HITBOXES", 7,
          [&]
          {
+             // Compact mode: no geometry raycasting on the render thread.
+             toggle_popup_row("Threat Direction (FPS-safe)", p.m_threat_vision.enabled, 5,
+                              [&]
+                              {
+                                  toggle_row("Suspected enemies only", p.m_threat_vision.suspects_only);
+                                  slider_row("Half angle", p.m_threat_vision.half_angle_deg,
+                                             5.0f, 25.0f, " deg", 1.0f);
+                                  slider_row("Line length", p.m_threat_vision.distance_units,
+                                             40.0f, 160.0f, " u", 5.0f);
+                                  color_row("Normal color", p.m_threat_vision.normal_color);
+                                  color_row("Suspect color", p.m_threat_vision.suspect_color);
+                              });
              toggle_color_row("Show Skeleton", p.m_skeleton.enabled, p.m_skeleton.visible_color);
              toggle_color_row("Show Head Circle", p.m_head_circle.enabled, p.m_head_circle.color);
              toggle_color_row("Show View Line", p.m_view_line.enabled, p.m_view_line.color);
@@ -179,6 +211,80 @@ void draw_players_tab()
                                   slider_row("Ring Radius", s.radius, 10.0f, 80.0f, "", 0.5f);
                               });
          });
+
+    if (show_duel_history)
+    {
+        ImGui::SetNextWindowSize(ImVec2(850, 450), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("Duel History - Observations Only", &show_duel_history))
+        {
+            ImGui::TextWrapped("Enemy damage/deaths and local damage/deaths are observed state changes. "
+                               "Attacker identity and kill attribution are not confirmed. "
+                               "Camera yaw is NOT the Aim Assist output. Orange/red is a heuristic, not proof.");
+            if (ImGui::Button("Export CSV"))
+            {
+                const auto destination = platform::windows::runtime_storage::paths().research_logs /
+                                         "vesta-aa-duel-history.csv";
+                const auto error = platform::windows::write_file_atomically(
+                    destination, vesta_aa::duelHistory().csv());
+                export_message = error ? std::format("Export failed: {}", error.message())
+                                       : "Exported to research_logs/vesta-aa-duel-history.csv";
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Clear records"))
+            {
+                vesta_aa::duelHistory().clear();
+                export_message = "History cleared";
+            }
+            if (!export_message.empty())
+                ImGui::TextUnformatted(export_message.c_str());
+            const auto events = vesta_aa::duelHistory().recent(150);
+            ImGui::Text("Events retained: %d (maximum 512)", static_cast<int>(events.size()));
+            if (ImGui::BeginTable("aa_duels", 8,
+                                  ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH |
+                                      ImGuiTableFlags_ScrollY,
+                                  ImVec2(0, 290)))
+            {
+                ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 94);
+                ImGui::TableSetupColumn("Player", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn("Event", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn("AA", ImGuiTableColumnFlags_WidthFixed, 88);
+                ImGui::TableSetupColumn("Pattern", ImGuiTableColumnFlags_WidthFixed, 92);
+                ImGui::TableSetupColumn("HP", ImGuiTableColumnFlags_WidthFixed, 68);
+                ImGui::TableSetupColumn("Yaw", ImGuiTableColumnFlags_WidthFixed, 65);
+                ImGui::TableSetupColumn("Aim FOV", ImGuiTableColumnFlags_WidthFixed, 70);
+                ImGui::TableHeadersRow();
+                for (auto it = events.rbegin(); it != events.rend(); ++it)
+                {
+                    const auto& entry = *it;
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("%.2f", entry.recorded_at_sec);
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextUnformatted(entry.player_name.c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    const auto event_name = vesta_aa::toString(entry.event);
+                    ImGui::TextUnformatted(event_name.data(), event_name.data() + event_name.size());
+                    ImGui::TableSetColumnIndex(3);
+                    const auto aa_name = vesta_aa::toString(entry.alert);
+                    ImGui::TextUnformatted(aa_name.data(), aa_name.data() + aa_name.size());
+                    ImGui::TableSetColumnIndex(4);
+                    const auto pattern = vesta_aa::toString(entry.pattern);
+                    ImGui::TextUnformatted(pattern.data(), pattern.data() + pattern.size());
+                    ImGui::TableSetColumnIndex(5);
+                    ImGui::Text("%d -> %d", entry.health_before, entry.health_after);
+                    ImGui::TableSetColumnIndex(6);
+                    ImGui::Text("%.0f", entry.enemy_yaw);
+                    ImGui::TableSetColumnIndex(7);
+                    if (entry.aim_fov_deg >= 0.0f)
+                        ImGui::Text("%.2f", entry.aim_fov_deg);
+                    else
+                        ImGui::TextUnformatted("-");
+                }
+                ImGui::EndTable();
+            }
+        }
+        ImGui::End();
+    }
 }
 
 void draw_items_tab()

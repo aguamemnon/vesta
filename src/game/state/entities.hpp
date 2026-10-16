@@ -93,6 +93,7 @@ struct player_snapshot
     foundation::vec3 velocity{};
     foundation::vec3 collision_center{};
     foundation::vec3 eye_angles{};
+    bool eye_angles_fallback{};
     float emit_sound_time{};
     float last_fired_time{};
     std::string display_name{};
