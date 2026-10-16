@@ -1073,11 +1073,20 @@ static void from_json(const json& j, visual_profile::player& p)
         read_field(zone, "suspect_color", p.m_threat_vision.suspect_color);
         read_field(zone, "repeated_color", p.m_threat_vision.repeated_color);
     }
-    p.m_threat_vision.half_angle_deg = std::clamp(p.m_threat_vision.half_angle_deg, 5.0f, 85.0f);
-    p.m_threat_vision.distance_units = std::clamp(p.m_threat_vision.distance_units, 150.0f, 2000.0f);
-    p.m_threat_vision.rays = std::clamp(p.m_threat_vision.rays, 6, 24);
-    p.m_threat_vision.max_targets = std::clamp(p.m_threat_vision.max_targets, 1, 8);
-    p.m_threat_vision.refresh_seconds = std::clamp(p.m_threat_vision.refresh_seconds, 0.08f, 0.8f);
+    // v1.2.6 performance migration: older profiles may request eight
+    // 24-ray wall-clipped 2000u polygons, which caused render-thread stalls.
+    // The compact renderer is intentionally bounded and ignores legacy fields.
+    p.m_threat_vision.clip_to_walls = false;
+    p.m_threat_vision.filled = false;
+    p.m_threat_vision.rays = 2;
+    p.m_threat_vision.max_targets = 1;
+    p.m_threat_vision.half_angle_deg =
+        std::isfinite(p.m_threat_vision.half_angle_deg) ?
+            std::clamp(p.m_threat_vision.half_angle_deg, 5.0f, 25.0f) : 12.0f;
+    p.m_threat_vision.distance_units =
+        std::isfinite(p.m_threat_vision.distance_units) ?
+            std::clamp(p.m_threat_vision.distance_units, 40.0f, 160.0f) : 95.0f;
+    p.m_threat_vision.refresh_seconds = 0.5f;
 
     if (j.contains("m_bomb_damage") && (!j.contains("m_info_flags") || !j.at("m_info_flags").contains("bomb_damage")))
     {
