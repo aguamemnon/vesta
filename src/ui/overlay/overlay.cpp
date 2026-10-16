@@ -563,7 +563,9 @@ void overlay_t::build_frame()
 
     ImGui::NewFrame();
     render::draw::draw_list draw_list{ImGui::GetBackgroundDrawList()};
-    features::chams::g_renderer.begin_2d_bloom_frame(gpu_effects_enabled());
+    // Avoid collecting 2D bloom triangles/lines if the later GPU pass is skipped.
+    features::chams::g_renderer.begin_2d_bloom_frame(
+        gpu_effects_enabled() && !config::general_settings.performance_mode);
 
     const auto spectator_suppressed =
         config::visual_settings.m_player.spectator_sync && game::world().local_spectated();
