@@ -1,6 +1,7 @@
 #include <stdafx.hpp>
 #include <features/visuals/visuals.hpp>
 #include <simulation/collision.hpp>
+#include <render/presentation.hpp>
 #include <game/state/services.hpp>
 #include <game/state/constants.hpp>
 
