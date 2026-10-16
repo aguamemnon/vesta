@@ -1,4 +1,4 @@
-# Overlay renderer: low-latency performance mode (v1.2.7)
+# Overlay renderer: low-latency performance mode (v1.2.8)
 
 ## The performance bottlenecks found during the rendering review
 
@@ -14,13 +14,33 @@ Access: **Misc → General → Engine → Performance Mode (90/60 Hz)**.
 
 It is enabled by default (including when loading older profiles without the flag). With Performance Mode enabled:
 
-- Overlay frames are capped at **90 Hz**, or the user's lower configured cap, even if the global FPS limiter is disabled.
+- Overlay frames are capped at **the lower of the monitor refresh, 90 Hz, and any lower user limit**, even if the global FPS limiter is disabled. A 60 Hz display therefore receives up to 60 overlay frames/s rather than 90.
 - Presentation bone/pose sampling is limited to **60 Hz**. Cached poses continue to render between reads. A slow sample never schedules catch-up reads.
 - The postprocess **2D bloom pass is skipped**; the underlying DX11 overlay, ImGui UI, and main chams/world rendering continue to work.
 - Threat Direction from v1.2.6 remains compact (one opponent, three short lines, no extra collision raycasting).
 - Turning off Performance Mode restores previous pacing, sampling, and postprocessing behavior so users can compare.
 
 The mode does not alter CS2's own FPS limiter or its graphics settings.
+
+## v1.2.8 — Stability refinements
+
+The v1.2.7 renderer passed all four user-reported performance combinations
+(Performance Mode, Anti-Aim Observer, Threat Direction, and the Misc probe)
+without noticeable lag. To preserve this baseline, v1.2.8 keeps the same
+60 Hz pose budget and bloom behavior and makes only two bounded changes:
+
+- **Monitor-aware pacing:** on a 60/75 Hz screen, the DX11 overlay does not
+  render 90 times per second when Performance Mode is enabled. A compile-time
+  policy test covers 60, 144 and uncapped display/limit combinations.
+- **Configuration save coalescing:** previously, with the menu closed, changes
+  emitted by scripts could write the settings file synchronously on every
+  rendered frame. In Performance Mode, storage writes now wait 400 ms after
+  the most recent change (1.5 s while editing in the menu). In-memory
+  settings still update every frame, and the application flushes on exit.
+  With Performance Mode off, the original persistence timing is retained.
+
+Neither change requires new GPU passes or process-memory reads. This is an
+incremental stability improvement, not a redesign of the DX11 compositor.
 
 ## Practical A/B verification
 
