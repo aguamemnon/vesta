@@ -1,4 +1,4 @@
-# Threat Vision Zone — v1.2.3-preview
+# Threat Vision Zone — v1.2.5 corrective preview
 
 **Status: experimental. This is not a hit probability, real visibility check,
 or authoritative line-of-fire test.**
@@ -60,3 +60,21 @@ Aim Assist, mouse input, hitbox selection or firing behavior.
 - Check transparency and ESP consistency at different screen resolutions.
 - Confirm CPU/frame-time remains acceptable with 8 targets and 24 rays.
 - Test `Suspected enemies only` with the AA observer on and off.
+
+
+## v1.2.5 rendering fixes
+
+- Zone candidates are selected from the immutable world snapshot, without
+  requiring a valid skeleton or a projected bounding box. Player ESP master
+  activation and any configured Legit Sync filter still apply.
+- Replicated eye angles of zero may fall back to scene rotation. In this case
+  the zone is **explicitly labelled approximate**, not omitted entirely.
+- When clipping is requested but map collision has not loaded, a temporary,
+  **unclipped approximate** sector is shown. This cannot be treated as a wall
+  visibility test.
+- Three ray boundaries at eye height remain visible when the flat ground
+  footprint cannot be projected. A 'VISION' label makes it easy to verify the
+  feature is active.
+- An onscreen status line shows the selected target count, or why all enemies
+  may have been filtered. To isolate filter problems, enable Player ESP and
+  temporarily disable 'Suspected enemies only' and Legit Sync.
