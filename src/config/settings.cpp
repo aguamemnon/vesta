@@ -976,7 +976,12 @@ static void to_json(json& j, const visual_profile::player& p)
              {"m_armor_bar", p.m_armor_bar},
              {"m_info_flags", p.m_info_flags},
              {"m_name", p.m_name},
-             {"m_weapon", p.m_weapon}};
+             {"m_weapon", p.m_weapon},
+             {"m_anti_aim", json{{"enabled", p.m_anti_aim.enabled},
+                                  {"show_warning", p.m_anti_aim.show_warning},
+                                  {"highlight_box", p.m_anti_aim.highlight_box},
+                                  {"suspicious_color", p.m_anti_aim.suspicious_color},
+                                  {"repeated_color", p.m_anti_aim.repeated_color}}}};
 }
 
 static void from_json(const json& j, visual_profile::player& p)
@@ -1029,6 +1034,15 @@ static void from_json(const json& j, visual_profile::player& p)
     read_field(j, "m_info_flags", p.m_info_flags);
     read_field(j, "m_name", p.m_name);
     read_field(j, "m_weapon", p.m_weapon);
+    if (j.contains("m_anti_aim"))
+    {
+        const auto& a = j.at("m_anti_aim");
+        read_field(a, "enabled", p.m_anti_aim.enabled);
+        read_field(a, "show_warning", p.m_anti_aim.show_warning);
+        read_field(a, "highlight_box", p.m_anti_aim.highlight_box);
+        read_field(a, "suspicious_color", p.m_anti_aim.suspicious_color);
+        read_field(a, "repeated_color", p.m_anti_aim.repeated_color);
+    }
 
     if (j.contains("m_bomb_damage") && (!j.contains("m_info_flags") || !j.at("m_info_flags").contains("bomb_damage")))
     {
