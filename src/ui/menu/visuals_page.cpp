@@ -156,9 +156,28 @@ void draw_players_tab()
                               chams_material_row_count(chams_cfg.invisible),
                               [&] { chams_material_rows(chams_cfg.invisible); });
          });
-    card("skeleton", "SKELETON & HITBOXES", 6,
+    card("skeleton", "SKELETON & HITBOXES", 7,
          [&]
          {
+             // Optional projection of enemy horizontal view sectors.
+             toggle_popup_row("Threat Vision Zone", p.m_threat_vision.enabled, 11,
+                              [&]
+                              {
+                                  toggle_row("Clip to map walls", p.m_threat_vision.clip_to_walls);
+                                  toggle_row("Suspected enemies only", p.m_threat_vision.suspects_only);
+                                  toggle_row("Fill danger sector", p.m_threat_vision.filled);
+                                  slider_row("Half angle", p.m_threat_vision.half_angle_deg,
+                                             5.0f, 85.0f, " deg", 1.0f);
+                                  slider_row("Range", p.m_threat_vision.distance_units,
+                                             150.0f, 2000.0f, " u", 25.0f);
+                                  slider_row("Ray count", p.m_threat_vision.rays, 6, 24);
+                                  slider_row("Max enemies", p.m_threat_vision.max_targets, 1, 8);
+                                  slider_row("Refresh", p.m_threat_vision.refresh_seconds,
+                                             0.08f, 0.8f, " s", 0.02f);
+                                  color_row("Normal sector", p.m_threat_vision.normal_color);
+                                  color_row("Suspect sector", p.m_threat_vision.suspect_color);
+                                  color_row("Repeated anomaly sector", p.m_threat_vision.repeated_color);
+                              });
              toggle_color_row("Show Skeleton", p.m_skeleton.enabled, p.m_skeleton.visible_color);
              toggle_color_row("Show Head Circle", p.m_head_circle.enabled, p.m_head_circle.color);
              toggle_color_row("Show View Line", p.m_view_line.enabled, p.m_view_line.color);
