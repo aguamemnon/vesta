@@ -26,19 +26,18 @@ void player_t::paint_threat_vision_zone(render::draw::draw_list& draw_list,
                                         const config::visual_profile::player::threat_vision_zone& cfg,
                                         const vesta_aa::Alert status, const double timestamp)
 {
-    if (!cfg.enabled || !player.pawn || player.health <= 0 || player.eye_angles_fallback ||
+    if (!cfg.enabled || !player.pawn || player.health <= 0 ||
         !finite3(player.origin) || !std::isfinite(player.eye_angles.y) ||
-        !std::isfinite(timestamp) || player.simulation_tick <= 0)
+        !std::isfinite(timestamp))
         return;
 
     const auto suspicious = status == vesta_aa::Alert::Suspicious ||
                             status == vesta_aa::Alert::RepeatedAnomalies;
     if (cfg.suspects_only && !suspicious)
         return;
-    // With clipping enabled, never silently show an unrestricted sector if the
-    // map collision world has not been initialized yet.
-    if (cfg.clip_to_walls && !simulation::collision().valid())
-        return;
+    // When map collision is missing, render an explicitly approximate sector
+    // rather than silently leaving the feature invisible.
+    const bool clipped = cfg.clip_to_walls && simulation::collision().valid();
 
     const auto distance = std::clamp(cfg.distance_units, 150.0f, 2000.0f);
     const auto half_angle = std::clamp(cfg.half_angle_deg, 5.0f, 85.0f);
@@ -53,8 +52,9 @@ void player_t::paint_threat_vision_zone(render::draw::draw_list& draw_list,
     const auto moved = (player.origin - cached.origin).length_sqr();
     const auto rotated = std::fabs(foundation::wrap_yaw(player.eye_angles.y - cached.yaw));
     const auto recompute = cached.edge_points.size() != static_cast<std::size_t>(rays + 1) ||
+                           cached.eye_edge_points.size() != static_cast<std::size_t>(rays + 1) ||
                            cached.updated_at < 0.0 || elapsed < 0.0 ||
-                           cached.rays != rays || cached.walls != cfg.clip_to_walls ||
+                           cached.rays != rays || cached.walls != clipped ||
                            cached.ducked != player.is_ducked ||
                            std::fabs(cached.distance - distance) > 0.01f ||
                            std::fabs(cached.half_angle - half_angle) > 0.01f ||
@@ -67,11 +67,13 @@ void player_t::paint_threat_vision_zone(render::draw::draw_list& draw_list,
         cached.distance = distance;
         cached.half_angle = half_angle;
         cached.rays = rays;
-        cached.walls = cfg.clip_to_walls;
+        cached.walls = clipped;
         cached.ducked = player.is_ducked;
         cached.updated_at = timestamp;
         cached.edge_points.clear();
+        cached.eye_edge_points.clear();
         cached.edge_points.reserve(static_cast<std::size_t>(rays + 1));
+        cached.eye_edge_points.reserve(static_cast<std::size_t>(rays + 1));
 
         // We trace from approximate eye height against world geometry, then
         // draw a footprint at the pawn's foot-plane. Uneven terrain and
@@ -87,15 +89,18 @@ void player_t::paint_threat_vision_zone(render::draw::draw_list& draw_list,
             foundation::vec3 forward{}, right{}, up{};
             foundation::basis_from_angles(foundation::vec3{0.0f, angle, 0.0f}, forward, right, up);
             const auto far_point = eye + forward * distance;
-            const auto end = cfg.clip_to_walls
-                                 ? simulation::collision().trace_ray(eye, far_point).end_pos
-                                 : far_point;
+            const auto end = clipped ? simulation::collision().trace_ray(eye, far_point).end_pos
+                                     : far_point;
             cached.edge_points.emplace_back(end.x, end.y, floor_z);
+            cached.eye_edge_points.push_back(end);
         }
     }
 
     const auto center = game::camera().project(cached.origin + foundation::vec3{0.0f, 0.0f, 3.0f});
-    if (!sensible_screen_point(center))
+    const auto eye_height = player.is_ducked ? 46.0f : 64.0f;
+    const auto eye_screen = game::camera().project(
+        cached.origin + foundation::vec3{0.0f, 0.0f, eye_height});
+    if (!sensible_screen_point(center) && !sensible_screen_point(eye_screen))
         return;
 
     std::vector<foundation::vec2> projected;
@@ -107,14 +112,17 @@ void player_t::paint_threat_vision_zone(render::draw::draw_list& draw_list,
                            ? cfg.repeated_color
                            : status == vesta_aa::Alert::Suspicious ? cfg.suspect_color
                                                                     : cfg.normal_color;
-    const auto opacity = std::clamp(player.legit_opacity, 0.0f, 1.0f);
+    const auto angle_uncertain = player.eye_angles_fallback || !clipped;
+    const auto opacity = std::clamp(player.legit_opacity, 0.0f, 1.0f) *
+                         (angle_uncertain ? 0.72f : 1.0f);
     const auto fill_alpha = static_cast<std::uint8_t>(
         std::clamp(static_cast<float>(color.a) * 0.18f * opacity, 0.0f, 255.0f));
     const render::draw::rgba fill{color.r, color.g, color.b, fill_alpha};
 
     for (std::size_t i = 1; i < projected.size(); ++i)
     {
-        if (!sensible_screen_point(projected[i-1]) || !sensible_screen_point(projected[i]))
+        if (!sensible_screen_point(center) ||
+            !sensible_screen_point(projected[i-1]) || !sensible_screen_point(projected[i]))
             continue;
 
         if (cfg.filled)
@@ -132,11 +140,32 @@ void player_t::paint_threat_vision_zone(render::draw::draw_list& draw_list,
                            projected[i].x, projected[i].y, color, 1.7f);
     }
 
-    if (!projected.empty() && sensible_screen_point(projected.front()))
+    if (sensible_screen_point(center) && !projected.empty() && sensible_screen_point(projected.front()))
         draw_list.add_line(center.x, center.y, projected.front().x,
                            projected.front().y, color, 1.0f);
-    if (!projected.empty() && sensible_screen_point(projected.back()))
+    if (sensible_screen_point(center) && !projected.empty() && sensible_screen_point(projected.back()))
         draw_list.add_line(center.x, center.y, projected.back().x,
                            projected.back().y, color, 1.0f);
+
+    // Elevated rays provide a usable marker even when the footprint is outside
+    // the projection frustum (common when looking upwards at a close target).
+    if (sensible_screen_point(eye_screen))
+    {
+        for (const std::size_t idx : {std::size_t{0}, cached.eye_edge_points.size() / 2,
+                                      cached.eye_edge_points.size() - 1})
+        {
+            const auto endpoint = game::camera().project(cached.eye_edge_points[idx]);
+            if (sensible_screen_point(endpoint))
+                draw_list.add_line(eye_screen.x, eye_screen.y, endpoint.x, endpoint.y,
+                                   color, idx == cached.eye_edge_points.size() / 2 ? 2.0f : 1.2f);
+        }
+        draw_list.add_circle(eye_screen.x, eye_screen.y, 5.0f, color, 12, 1.5f);
+        if (const auto* font = render::fonts().esp_text_11)
+        {
+            const auto caption = angle_uncertain ? "VISION ~ (estimate)" : "VISION";
+            draw_list.add_text(eye_screen.x + 8.0f, eye_screen.y - 18.0f, caption,
+                               font, color, render::draw::text_style::outlined);
+        }
+    }
 }
 } // namespace features::visuals
