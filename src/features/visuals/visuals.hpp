@@ -81,6 +81,7 @@ private:
         bool ducked{};
         double updated_at{-1.0};
         std::vector<foundation::vec3> edge_points{};
+        std::vector<foundation::vec3> eye_edge_points{};
     };
     std::unordered_map<std::uintptr_t, threat_vision_cache> m_threat_vision_cache{};
     std::string m_threat_vision_level{};
