@@ -828,7 +828,10 @@ bool world_sampler::read_player(const player_pass& pass, const entity_directory:
     const remote_span scene_fields(process, game_scene_node, scene_first, scene_last);
     // Pawns that have not replicated eye angles yet face along their scene rotation.
     if (p.eye_angles.x == 0.0f && p.eye_angles.y == 0.0f)
+    {
+        p.eye_angles_fallback = true;
         p.eye_angles = scene_fields.get<foundation::vec3>(game_scene_node, o.scene_abs_rotation);
+    }
 
     p.game_scene_node = game_scene_node;
     if (pass.settings->visual.m_chams.enabled)
