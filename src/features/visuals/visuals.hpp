@@ -8,6 +8,7 @@
 #include <simulation/grenade.hpp>
 #include <game/state/pose.hpp>
 #include <config/settings.hpp>
+#include <features/visuals/anti_aim_observer.hpp>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -67,6 +68,7 @@ public:
     inline static constexpr std::array<int, 14> threat_limb_bones{8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22};
 
 private:
+    vesta_aa::AntiAimObserver m_aa_observer{};
     void paint_frame(render::draw::draw_list& draw_list, const game::bounds_projector::data& bounds,
                      const config::visual_profile::player::box& cfg, bool is_visible);
     void paint_skeleton(render::draw::draw_list& draw_list, const game::skeleton_reader::data& bones,
