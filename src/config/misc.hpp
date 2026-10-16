@@ -189,6 +189,19 @@ struct general_profile
         int activation_key{VK_XBUTTON1};
     } m_edge_jump{};
 
+    // Visual-only wall-distance and lateral-position overlay. This does not
+    // use enemy data and cannot modify movement, view angles or firing.
+    struct angle_placement_helper
+    {
+        bool enabled{false};
+        bool show_lateral_markers{true};
+        bool show_wall_distance{true};
+        float scan_distance{192.0f};
+        float marker_spacing{40.0f};
+        float refresh_seconds{0.25f};
+        foundation::rgba color{110, 205, 245, 215};
+    } m_angle_placement{};
+
     game_controls m_game_controls{};
 
     struct auto_stop
