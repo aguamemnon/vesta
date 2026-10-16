@@ -2001,6 +2001,7 @@ static void to_json(json& j, const general_profile& m)
              {"obs_bypass", m.obs_bypass},
              {"limit_fps", m.limit_fps},
              {"fps_limit", m.fps_limit},
+             {"performance_mode", m.performance_mode},
              {"use_gpu", m.use_gpu}};
 }
 
@@ -2044,6 +2045,7 @@ static void from_json(const json& j, general_profile& m)
     read_field(j, "obs_bypass", m.obs_bypass);
     read_field(j, "limit_fps", m.limit_fps);
     read_field(j, "fps_limit", m.fps_limit);
+    read_field(j, "performance_mode", m.performance_mode);
     read_field(j, "use_gpu", m.use_gpu);
 }
 
