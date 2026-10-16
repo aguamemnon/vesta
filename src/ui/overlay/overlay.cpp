@@ -436,7 +436,8 @@ void overlay_t::update_frame_state()
     game::render_poses().set_presentation_state(
         feature_plan.sample_players,
         ui::pose_sample_limit(config::general_settings.limit_fps,
-                              static_cast<std::uint32_t>(std::max(0, config::general_settings.fps_limit))));
+                              static_cast<std::uint32_t>(std::max(0, config::general_settings.fps_limit)),
+                              config::general_settings.performance_mode));
     synchronize_menu_focus();
     apply_capture_policy();
 }
@@ -476,9 +477,16 @@ void overlay_t::apply_pending_file_request()
 bool overlay_t::pace_frame(foundation::frame_schedule& clock, HANDLE timer)
 {
     const auto& general = config::general_settings;
-    const auto rate = general.limit_fps && general.fps_limit > 0
-                          ? static_cast<std::uint32_t>(general.fps_limit)
-                          : (m_frame_latency_unreliable ? std::max(m_window_tracker.refresh_rate(), 60u) : 0u);
+    const auto configured_rate = general.limit_fps && general.fps_limit > 0
+                                     ? static_cast<std::uint32_t>(general.fps_limit)
+                                     : (m_frame_latency_unreliable ? std::max(m_window_tracker.refresh_rate(), 60u)
+                                                                   : 0u);
+    // Rendering a full transparent DX11 frame at 240+ Hz needlessly
+    // competes with the game for GPU time. Eco mode takes the smaller user
+    // cap, or 90 Hz if no cap is configured.
+    const auto rate = general.performance_mode
+                          ? (configured_rate ? std::min(configured_rate, 90u) : 90u)
+                          : configured_rate;
     clock.set_rate(rate, std::chrono::steady_clock::now());
     if (m_frame_latency_waitable && !m_frame_latency_unreliable &&
         !wait_for_signal(m_frame_latency_waitable, m_window_tracker.transition_revision()))
@@ -600,7 +608,8 @@ void overlay_t::submit_frame()
         ImGui::Render();
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     }
-    if (m_use_gpu && config::general_settings.use_gpu && !render::menu_open())
+    if (m_use_gpu && config::general_settings.use_gpu &&
+        !config::general_settings.performance_mode && !render::menu_open())
     {
         VESTA_PERF_SCOPE(bloom_2d);
         features::chams::g_renderer.render_2d_bloom(m_rtv, m_render_width, m_render_height);
