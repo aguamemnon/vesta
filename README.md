@@ -9,7 +9,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 **A feature-complete external cheat for Counter-Strike 2.**
 
 <p>
-  <a href="https://github.com/Read1dno/vesta/releases/latest"><img src=".github/assets/icon-download.svg" width="16" height="16" alt=""> <strong>Download</strong></a>
+  <a href="https://github.com/aguamemnon/vesta/releases"><img src=".github/assets/icon-download.svg" width="16" height="16" alt=""> <strong>Download</strong></a>
   &nbsp;&nbsp;&nbsp;
   <a href="https://read1dno.github.io/vesta/"><img src=".github/assets/icon-website.svg" width="16" height="16" alt=""> <strong>Website</strong></a>
   &nbsp;&nbsp;&nbsp;
@@ -20,7 +20,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 ## Quick start
 
-1. Download [`vesta.exe`](https://github.com/Read1dno/vesta/releases/latest).
+1. Download [`vesta.exe`](https://github.com/aguamemnon/vesta/releases).
 2. Start Counter-Strike 2.
 3. Run `vesta.exe`.
 4. Press `Insert` to open the menu. Press `End` to close Vesta.
@@ -175,13 +175,18 @@ Download a profile and import it from **Misc → Configs**.
 
 ## Official builds
 
-Release binaries are compiled by GitHub Actions from the tagged source and
-published with signed build provenance. Verify a downloaded executable with
-[GitHub CLI](https://cli.github.com/):
+On this fork, every successful Windows x64 build pushed to `main` or
+`feature/**` is configured to publish a versioned GitHub Release containing
+`vesta.exe` and `SHA256SUMS.txt`. Feature-branch builds are marked as
+pre-releases. Download from [this fork's Releases](https://github.com/aguamemnon/vesta/releases).
+Compare the binary's SHA-256 with `SHA256SUMS.txt`:
 
 ```powershell
-gh attestation verify .\vesta.exe --repo Read1dno/vesta
+(Get-FileHash .\vesta.exe -Algorithm SHA256).Hash
 ```
+
+This pipeline requires GitHub Actions to be enabled for the fork and write
+permission for the release job. A build is not a security audit.
 
 <details>
 <summary><strong>Build from source</strong></summary>
