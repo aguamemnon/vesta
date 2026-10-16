@@ -1,5 +1,6 @@
 #include <stdafx.hpp>
 #include <features/aimbot/aimbot_internal.hpp>
+#include <features/visuals/duel_history.hpp>
 
 namespace features::aimbot
 {
@@ -318,7 +319,21 @@ bool aimbot_t::select_and_aim(const combat_frame& frame, const config::combat_pr
         m_next_visual_scan = std::chrono::steady_clock::now() + indicator_period;
     }
     if (selected_target.player)
+    {
+        // Passive telemetry: selected target != actual shot or server-confirmed hit.
+        if (config::get_runtime_snapshot()->visual.m_player.m_anti_aim.record_duels)
+        {
+            const auto& p = *selected_target.player;
+            const auto id = p.steamid ? p.steamid : static_cast<std::uint64_t>(p.controller);
+            const double captured_at =
+                std::chrono::duration<double>(frame.timestamp.time_since_epoch()).count();
+            vesta_aa::duelHistory().observeAimTarget(
+                {id, static_cast<std::uint64_t>(p.pawn)}, p.display_name,
+                captured_at, p.simulation_tick, p.eye_angles.y, frame.view_angles.y,
+                selected_target.fov, selected_target.hitbox);
+        }
         aimbot(frame.eye, frame.view_angles, selected_target, cfg.aimbot);
+    }
     return true;
 }
 
