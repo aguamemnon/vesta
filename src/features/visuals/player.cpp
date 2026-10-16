@@ -5,6 +5,7 @@
 #include <game/state/services.hpp>
 #include <features/chams/renderer.hpp>
 #include <features/visuals/visuals.hpp>
+#include <simulation/collision.hpp>
 
 namespace features::visuals
 {
@@ -210,18 +211,19 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         }
         const auto local_eye = frame->camera.origin;
         std::vector<std::pair<float, std::uintptr_t>> closest{};
-        closest.reserve(frame->players.size());
-        for (const auto& candidate : frame->players)
+        // Threat zones need position + orientation, not a complete skeleton.
+        // The old dependency on valid bones/bounding boxes excluded targets
+        // before the zone renderer could even run.
+        closest.reserve(frame->world->size());
+        for (const auto& enemy : *frame->world)
         {
-            if (candidate.source_index >= frame->world->size() || candidate.reused_after_read_failure ||
-                !candidate.bones.is_valid())
-                continue;
-            const auto& enemy = (*frame->world)[candidate.source_index];
-            if (!enemy.pawn || enemy.health <= 0 || enemy.eye_angles_fallback ||
-                !enemy.legit_visible || !game::local_player().is_enemy(enemy.team))
+            if (!enemy.pawn || enemy.health <= 0 ||
+                !enemy.legit_visible || !game::local_player().is_enemy(enemy.team) ||
+                !std::isfinite(enemy.origin.x) || !std::isfinite(enemy.origin.y) ||
+                !std::isfinite(enemy.origin.z) || !std::isfinite(enemy.eye_angles.y))
                 continue;
             const auto dist = (enemy.origin - local_eye).length_sqr();
-            if (!std::isfinite(dist) || dist > 2400.0f * 2400.0f)
+            if (!std::isfinite(dist) || dist > 3200.0f * 3200.0f)
                 continue;
             closest.emplace_back(dist, enemy.pawn);
         }
@@ -229,6 +231,32 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         const auto max_targets = static_cast<std::size_t>(std::clamp(cfg.m_threat_vision.max_targets, 1, 8));
         for (std::size_t index = 0; index < std::min(max_targets, closest.size()); ++index)
             threat_targets.insert(closest[index].second);
+
+        // Render independently of skeleton/bounding-box availability.
+        for (const auto& enemy : *frame->world)
+        {
+            if (!threat_targets.contains(enemy.pawn))
+                continue;
+            const auto id = enemy.steamid ? enemy.steamid : static_cast<std::uint64_t>(enemy.controller);
+            const auto status = m_aa_observer.lastAssessment({id, static_cast<std::uint64_t>(enemy.pawn)});
+            render::draw::draw_list zone_draw{draw_list.m_im_draw_list, enemy.legit_opacity};
+            paint_threat_vision_zone(zone_draw, enemy, cfg.m_threat_vision, status.alert, captured_at);
+        }
+
+        // Visible status and reasons, to avoid a silently empty overlay.
+        if (const auto* font = render::fonts().esp_text_11)
+        {
+            const bool geometry_ready = simulation::collision().valid();
+            const auto text_line = closest.empty()
+                ? "VISION ZONE: 0 eligible (enemy / Legit Sync filter)"
+                : (cfg.m_threat_vision.clip_to_walls && !geometry_ready)
+                    ? "VISION ZONE: map collision unavailable - approximate"
+                    : std::format("VISION ZONE: {} enemy(s) / {} ray(s)",
+                                  threat_targets.size(), std::clamp(cfg.m_threat_vision.rays, 6, 24));
+            draw_list.add_text(22.0f, 112.0f, text_line, font,
+                               render::draw::rgba{125, 205, 235, 215},
+                               render::draw::text_style::outlined);
+        }
     }
 
     active_bomb_info bomb_info{};
@@ -327,10 +355,6 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
              aa_state.alert == vesta_aa::Alert::RepeatedAnomalies);
         const auto aa_color = aa_state.alert == vesta_aa::Alert::RepeatedAnomalies
             ? cfg.m_anti_aim.repeated_color : cfg.m_anti_aim.suspicious_color;
-
-        if (cfg.m_threat_vision.enabled && threat_targets.contains(player.pawn) &&
-            !pose.reused_after_read_failure)
-            paint_threat_vision_zone(player_draw, player, cfg.m_threat_vision, aa_state.alert, captured_at);
 
         if (cfg.m_box.enabled)
         {
