@@ -236,6 +236,9 @@ struct general_profile
     // scripts may explicitly launch an external helper through the OS library.
     bool limit_fps{true};
     int fps_limit{240};
+    // Conserves GPU time and limits blocking memory reads on the render thread.
+    // A user can turn this off to compare rendering behavior.
+    bool performance_mode{true};
     bool use_gpu{true};
 };
 
