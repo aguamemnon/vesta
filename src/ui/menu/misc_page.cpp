@@ -296,7 +296,7 @@ void draw_movement_tab()
              toggle_popup_row("Enable Edge Jump", p.m_edge_jump.enabled, 1,
                               [&] { keybind_row("Activation Key", p.m_edge_jump.activation_key); });
              auto& guide = p.m_angle_placement;
-             toggle_popup_row("Angle Placement Helper", guide.enabled, 6,
+             toggle_popup_row("Wall Geometry Probe (experimental)", guide.enabled, 6,
                               [&]
                               {
                                   toggle_row("Show wall distance", guide.show_wall_distance);
