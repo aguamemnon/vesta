@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: Anti-Aim Observer + Geometry Diagnostics v1.2.5
+## Fork preview: Rendering Performance Mode v1.2.7
 
 Optional passive orientation alerts on player ESP, a **Duel History**
 diagnostic window, and a **Threat Vision Zone** overlay. The zone projects
@@ -41,10 +41,16 @@ shows local wall distance and lateral floor markers, based solely on map
 geometry. It never reads adversary data, moves the player or adjusts aim.
 See [the helper documentation](docs/angle-placement-helper.md) for limits.
 
-**v1.2.5 fixes:** L/R placement markers now have a screen-space fallback;
-Threat Vision uses enemy positions without requiring a fully projected skeleton,
-and shows a visible status line and approximate eye-level rays if ground
-projection or map collision is unavailable.
+**v1.2.5 fixes:** geometric overlay fallback indicators.
+
+**v1.2.6:** Threat Vision was replaced with a faint, short **Threat Direction**
+indicator for at most one nearby opponent (no collision tracing or filled polygons).
+
+**v1.2.7:** **Misc → General → Engine → Performance Mode (90/60 Hz)** is
+enabled by default. It reduces transparent overlay updates to at most 90 Hz,
+limits synchronous skeleton reads to 60 Hz, and disables extra 2D bloom
+postprocessing. Switch it off for a direct A/B comparison. See
+[rendering performance and benchmark guidance](docs/render-performance.md).
 
 ## Quick start
 
