@@ -175,6 +175,15 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
     if (cfg.spectator_sync && game::world().local_spectated())
         return;
 
+    // The history reads the same immutable presentation frame as the ESP.
+    // Events deliberately carry no invented attacker attribution.
+    const auto captured_at =
+        std::chrono::duration<double>(frame->timestamp.time_since_epoch()).count();
+    if (cfg.m_anti_aim.record_duels)
+        vesta_aa::duelHistory().observeLocal(
+            static_cast<std::uint64_t>(game::local_player().pawn()),
+            game::local_player().health(), captured_at, frame->camera.angles.y);
+
     const auto current_time = game::local_player().game_time();
     if (current_time <= 0.0f)
     {
@@ -261,6 +270,17 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
                 static_cast<std::uint64_t>(player.controller);
             aa_state = m_aa_observer.observe({stable_id, static_cast<std::uint64_t>(player.pawn)}, sample);
         }
+        if (cfg.m_anti_aim.record_duels && player.health > 0)
+        {
+            const auto stable_id = player.steamid ? player.steamid :
+                static_cast<std::uint64_t>(player.controller);
+            vesta_aa::duelHistory().observeEnemy({
+                {stable_id, static_cast<std::uint64_t>(player.pawn)},
+                player.display_name, captured_at, player.simulation_tick, player.health,
+                player.last_fired_time, player.eye_angles.y, frame->camera.angles.y,
+                aa_state.alert, aa_state.pattern, aa_state.anomaly_score
+            });
+        }
         const auto aa_warning = cfg.m_anti_aim.enabled && !pose.reused_after_read_failure &&
             (aa_state.alert == vesta_aa::Alert::Suspicious ||
              aa_state.alert == vesta_aa::Alert::RepeatedAnomalies);
@@ -331,6 +351,26 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         if (cfg.m_info_flags.enabled || player.invulnerable)
         {
             paint_status_labels(player_draw, legit_bright_draw, bounds, player, cfg, bomb_info, current_time);
+        }
+    }
+
+    if (cfg.m_anti_aim.record_duels)
+    {
+        // Death snapshots can lose their pose/bone cache; still record those
+        // state transitions using the last measured AA status for that pawn.
+        for (const auto& player : *frame->world)
+        {
+            if (player.health > 0 || !game::local_player().is_enemy(player.team))
+                continue;
+            const auto stable_id = player.steamid ? player.steamid :
+                static_cast<std::uint64_t>(player.controller);
+            const vesta_aa::PlayerKey key{stable_id, static_cast<std::uint64_t>(player.pawn)};
+            const auto status = m_aa_observer.lastAssessment(key);
+            vesta_aa::duelHistory().observeEnemy({
+                key, player.display_name, captured_at, player.simulation_tick, player.health,
+                player.last_fired_time, player.eye_angles.y, frame->camera.angles.y,
+                status.alert, status.pattern, status.anomaly_score
+            });
         }
     }
 
