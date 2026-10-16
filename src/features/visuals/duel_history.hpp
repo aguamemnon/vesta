@@ -14,7 +14,7 @@ namespace vesta_aa
 {
 // Observations only. No attacker attribution or server-side hit confirmation.
 enum class DuelEvent : std::uint8_t {
-    EnemyFired, EnemyDamaged, EnemyDied, LocalDamaged, LocalDied, AlertChanged
+    EnemyFired, EnemyDamaged, EnemyDied, LocalDamaged, LocalDied, AlertChanged, AimTargetObserved
 };
 
 struct DuelEventRecord {
@@ -32,6 +32,8 @@ struct DuelEventRecord {
     std::int64_t simulation_tick{};
     // False for all observed health changes: cause/attacker isn't known.
     bool attacker_confirmed{false};
+    float aim_fov_deg{-1.0f};
+    int aim_hitbox{-1};
 };
 
 struct PlayerCombatObservation {
@@ -52,6 +54,9 @@ class DuelHistory {
 public:
     void observeEnemy(const PlayerCombatObservation& observation);
     void observeLocal(std::uint64_t pawn, int health, double timestamp_sec, float camera_yaw);
+    void observeAimTarget(PlayerKey target, std::string_view name, double timestamp_sec,
+                          std::int64_t simulation_tick, float enemy_yaw, float camera_yaw,
+                          float aim_fov_deg, int hitbox);
     [[nodiscard]] std::vector<DuelEventRecord> recent(std::size_t limit = 150) const;
     [[nodiscard]] std::string csv() const;
     void clear();
@@ -70,6 +75,7 @@ private:
     mutable std::mutex mutex_{};
     std::unordered_map<PlayerKey, PlayerState, PlayerKeyHash> players_;
     std::deque<DuelEventRecord> events_{};
+    std::unordered_map<PlayerKey, double, PlayerKeyHash> last_aim_sample_{};
     std::uint64_t local_pawn_{};
     int local_health_{-1};
     double local_time_{-1.0};
