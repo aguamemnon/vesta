@@ -768,10 +768,17 @@ bool overlay_t::run()
                 m_config_dirty = true;
                 m_config_changed_at = now;
             }
-            // The live configuration follows every change: written a moment after the last edit, or as soon as the
-            // menu closes.
+            // Settings can be changed by scripts even with the menu closed.
+            // A previous immediate save would do synchronous disk I/O on the
+            // render thread for every such change, potentially once per frame.
+            // Coalesce bursts while still saving shortly after the last edit.
+            const auto save_delay = config::general_settings.performance_mode
+                                        ? (render::menu_open() ? std::chrono::milliseconds(1500)
+                                                               : std::chrono::milliseconds(400))
+                                        : std::chrono::milliseconds(1500);
             if (m_config_dirty &&
-                (now - m_config_changed_at >= std::chrono::milliseconds(1500) || !render::menu_open()))
+                (now - m_config_changed_at >= save_delay ||
+                 (!config::general_settings.performance_mode && !render::menu_open())))
             {
                 m_config_dirty = false;
                 static_cast<void>(config::storage.write_cache());
