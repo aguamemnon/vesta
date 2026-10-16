@@ -18,6 +18,19 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
+## Fork preview: Anti-Aim Observer v1.2.2
+
+This fork adds optional passive orientation alerts on the player ESP and a
+**Duel History** diagnostic window. It records observed enemy health/firing
+changes, local health changes, and Aim Assist target selections with angular
+error, all without claiming to know the attacker of an observed death.
+
+Enable the options under **Visuals → Players**, then open **Duel History** to
+inspect and export a bounded CSV log. The observer and journal are disabled
+by default. See [Duel History documentation](docs/anti-aim-duel-history.md).
+Windows pre-release executables are built via GitHub Actions and distributed
+through this fork's [Releases](https://github.com/aguamemnon/vesta/releases).
+
 ## Quick start
 
 1. Download [`vesta.exe`](https://github.com/aguamemnon/vesta/releases).
