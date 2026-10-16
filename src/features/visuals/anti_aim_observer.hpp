@@ -62,6 +62,7 @@ struct AlertRecord {
 class AntiAimObserver {
 public:
     Assessment observe(PlayerKey key, const OrientationSample& sample);
+    [[nodiscard]] Assessment lastAssessment(PlayerKey key) const;
     void forget(PlayerKey key);
     void clear();
     [[nodiscard]] std::size_t trackedPlayers() const noexcept;
