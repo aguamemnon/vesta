@@ -279,17 +279,19 @@ struct visual_profile
         struct threat_vision_zone
         {
             bool enabled{false};
-            bool clip_to_walls{true};
+            // Legacy fields remain for loading old profiles. The compact
+            // renderer does not use collision clipping or filled polygons.
+            bool clip_to_walls{false};
             bool suspects_only{false};
-            bool filled{true};
-            float half_angle_deg{35.0f};
-            float distance_units{900.0f};
-            int rays{12};
-            int max_targets{4};
-            float refresh_seconds{0.25f};
-            foundation::rgba normal_color{95, 170, 225, 185};
-            foundation::rgba suspect_color{255, 165, 45, 210};
-            foundation::rgba repeated_color{240, 75, 65, 220};
+            bool filled{false};
+            float half_angle_deg{12.0f};
+            float distance_units{95.0f};
+            int rays{2};
+            int max_targets{1};
+            float refresh_seconds{0.5f};
+            foundation::rgba normal_color{95, 170, 225, 105};
+            foundation::rgba suspect_color{255, 165, 45, 115};
+            foundation::rgba repeated_color{240, 75, 65, 120};
         } m_threat_vision{};
 
     } m_player{};
