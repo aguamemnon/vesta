@@ -153,9 +153,10 @@ void draw_general_tab()
         status = "Last session crashed";
         status_failed = true;
     }
-    card_in_column("engine", "ENGINE", 5 + (status ? 1 : 0), 1,
+    card_in_column("engine", "ENGINE", 6 + (status ? 1 : 0), 1,
                    [&]
                    {
+                       toggle_row("Performance Mode (90/60 Hz)", p.performance_mode);
                        toggle_popup_row("FPS Limiter", p.limit_fps, 1,
                                         [&] { slider_row("Maximum FPS", p.fps_limit, 30, 1000); });
                        toggle_row("GPU Effects", p.use_gpu);
