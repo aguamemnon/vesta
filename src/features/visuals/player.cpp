@@ -191,71 +191,37 @@ void player_t::render(render::draw::draw_list& draw_list, const std::shared_ptr<
         return;
     }
 
-    // Select a bounded set of nearby enemies before the ESP draw loop, so
-    // collision-ray work cannot scale with the entire player list.
-    std::unordered_set<std::uintptr_t> threat_targets{};
+    // Lightweight direction preview: one nearest eligible opponent only.
+    // No map collision calls, no sorting, no heap buffers, no HUD status text.
     if (cfg.m_threat_vision.enabled)
     {
-        const auto level_name = frame->level ? *frame->level : std::string{};
-        if (m_threat_vision_level != level_name)
+        const game::player_snapshot* nearest = nullptr;
+        float nearest_distance_sqr = 2200.0f * 2200.0f;
+        const auto eye = frame->camera.origin;
+        for (const auto& candidate : *frame->world)
         {
-            m_threat_vision_cache.clear();
-            m_threat_vision_level = level_name;
-        }
-        for (auto it = m_threat_vision_cache.begin(); it != m_threat_vision_cache.end();)
-        {
-            if (captured_at - it->second.updated_at > 3.0 || it->second.updated_at > captured_at)
-                it = m_threat_vision_cache.erase(it);
-            else
-                ++it;
-        }
-        const auto local_eye = frame->camera.origin;
-        std::vector<std::pair<float, std::uintptr_t>> closest{};
-        // Threat zones need position + orientation, not a complete skeleton.
-        // The old dependency on valid bones/bounding boxes excluded targets
-        // before the zone renderer could even run.
-        closest.reserve(frame->world->size());
-        for (const auto& enemy : *frame->world)
-        {
-            if (!enemy.pawn || enemy.health <= 0 ||
-                !enemy.legit_visible || !game::local_player().is_enemy(enemy.team) ||
-                !std::isfinite(enemy.origin.x) || !std::isfinite(enemy.origin.y) ||
-                !std::isfinite(enemy.origin.z) || !std::isfinite(enemy.eye_angles.y))
+            if (!candidate.pawn || candidate.health <= 0 || !candidate.legit_visible ||
+                !game::local_player().is_enemy(candidate.team) ||
+                !std::isfinite(candidate.origin.x) || !std::isfinite(candidate.origin.y) ||
+                !std::isfinite(candidate.origin.z) || !std::isfinite(candidate.eye_angles.y))
                 continue;
-            const auto dist = (enemy.origin - local_eye).length_sqr();
-            if (!std::isfinite(dist) || dist > 3200.0f * 3200.0f)
-                continue;
-            closest.emplace_back(dist, enemy.pawn);
+            const auto d = (candidate.origin - eye).length_sqr();
+            if (std::isfinite(d) && d < nearest_distance_sqr)
+            {
+                nearest_distance_sqr = d;
+                nearest = &candidate;
+            }
         }
-        std::sort(closest.begin(), closest.end());
-        const auto max_targets = static_cast<std::size_t>(std::clamp(cfg.m_threat_vision.max_targets, 1, 8));
-        for (std::size_t index = 0; index < std::min(max_targets, closest.size()); ++index)
-            threat_targets.insert(closest[index].second);
-
-        // Render independently of skeleton/bounding-box availability.
-        for (const auto& enemy : *frame->world)
+        if (nearest)
         {
-            if (!threat_targets.contains(enemy.pawn))
-                continue;
-            const auto id = enemy.steamid ? enemy.steamid : static_cast<std::uint64_t>(enemy.controller);
-            const auto status = m_aa_observer.lastAssessment({id, static_cast<std::uint64_t>(enemy.pawn)});
-            render::draw::draw_list zone_draw{draw_list.m_im_draw_list, enemy.legit_opacity};
-            paint_threat_vision_zone(zone_draw, enemy, cfg.m_threat_vision, status.alert, captured_at);
-        }
-
-        // Visible status and reasons, to avoid a silently empty overlay.
-        if (const auto* font = render::fonts().esp_text_11)
-        {
-            const bool geometry_ready = simulation::collision().valid();
-            const auto text_line = closest.empty()
-                ? "VISION ZONE: 0 eligible (enemy / Legit Sync filter)"
-                : (cfg.m_threat_vision.clip_to_walls && !geometry_ready)
-                    ? "VISION ZONE: map collision unavailable - approximate"
-                    : std::format("VISION ZONE: {} enemy(s) / {} ray(s)",
-                                  threat_targets.size(), std::clamp(cfg.m_threat_vision.rays, 6, 24));
-            draw_list.add_text(22.0f, 112.0f, text_line, font,
-                               render::draw::rgba{125, 205, 235, 215},
-                               render::draw::text_style::outlined);
+            const auto id = nearest->steamid ? nearest->steamid :
+                static_cast<std::uint64_t>(nearest->controller);
+            const auto alert = m_aa_observer.lastAssessment(
+                {id, static_cast<std::uint64_t>(nearest->pawn)});
+            render::draw::draw_list light_draw{draw_list.m_im_draw_list,
+                                               std::clamp(nearest->legit_opacity, 0.0f, 1.0f)};
+            paint_threat_vision_zone(light_draw, *nearest, cfg.m_threat_vision,
+                                     alert.alert, captured_at);
         }
     }
 
