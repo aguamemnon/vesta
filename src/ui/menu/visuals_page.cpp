@@ -227,7 +227,7 @@ void draw_players_tab()
                 ImGui::TextUnformatted(export_message.c_str());
             const auto events = vesta_aa::duelHistory().recent(150);
             ImGui::Text("Events retained: %d (maximum 512)", static_cast<int>(events.size()));
-            if (ImGui::BeginTable("aa_duels", 7,
+            if (ImGui::BeginTable("aa_duels", 8,
                                   ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH |
                                       ImGuiTableFlags_ScrollY,
                                   ImVec2(0, 290)))
@@ -239,6 +239,7 @@ void draw_players_tab()
                 ImGui::TableSetupColumn("Pattern", ImGuiTableColumnFlags_WidthFixed, 92);
                 ImGui::TableSetupColumn("HP", ImGuiTableColumnFlags_WidthFixed, 68);
                 ImGui::TableSetupColumn("Yaw", ImGuiTableColumnFlags_WidthFixed, 65);
+                ImGui::TableSetupColumn("Aim FOV", ImGuiTableColumnFlags_WidthFixed, 70);
                 ImGui::TableHeadersRow();
                 for (auto it = events.rbegin(); it != events.rend(); ++it)
                 {
@@ -261,6 +262,11 @@ void draw_players_tab()
                     ImGui::Text("%d -> %d", entry.health_before, entry.health_after);
                     ImGui::TableSetColumnIndex(6);
                     ImGui::Text("%.0f", entry.enemy_yaw);
+                    ImGui::TableSetColumnIndex(7);
+                    if (entry.aim_fov_deg >= 0.0f)
+                        ImGui::Text("%.2f", entry.aim_fov_deg);
+                    else
+                        ImGui::TextUnformatted("-");
                 }
                 ImGui::EndTable();
             }
