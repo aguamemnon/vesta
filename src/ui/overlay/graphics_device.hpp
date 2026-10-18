@@ -6,6 +6,42 @@
 
 namespace ui
 {
+struct overlay_gpu_profile
+{
+    std::uint32_t vendor_id{};
+    std::uint32_t dedicated_memory_mb{};
+};
+
+[[nodiscard]] inline overlay_gpu_profile detect_overlay_gpu(ID3D11Device* device)
+{
+    if (!device)
+        return {};
+    using Microsoft::WRL::ComPtr;
+    ComPtr<IDXGIDevice> dxgi;
+    ComPtr<IDXGIAdapter> adapter;
+    DXGI_ADAPTER_DESC description{};
+    if (FAILED(device->QueryInterface(IID_PPV_ARGS(&dxgi))) ||
+        FAILED(dxgi->GetAdapter(&adapter)) ||
+        FAILED(adapter->GetDesc(&description)))
+        return {};
+    return {description.VendorId,
+            static_cast<std::uint32_t>(description.DedicatedVideoMemory / (1024u * 1024u))};
+}
+
+[[nodiscard]] constexpr const char* overlay_gpu_vendor_name(std::uint32_t vendor_id) noexcept
+{
+    switch (vendor_id)
+    {
+    case 0x10DE: return "NVIDIA";
+    case 0x1002: return "AMD";
+    case 0x1022: return "AMD";
+    case 0x8086: return "Intel";
+    case 0x1414: return "Microsoft WARP";
+    case 0: return "Unknown";
+    default: return "Other";
+    }
+}
+
 [[nodiscard]] inline HRESULT set_overlay_gpu_priority(ID3D11Device* device)
 {
     Microsoft::WRL::ComPtr<IDXGIDevice> dxgi;
