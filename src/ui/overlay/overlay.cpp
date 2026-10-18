@@ -780,14 +780,21 @@ bool overlay_t::run()
             ::MsgWaitForMultipleObjectsEx(0, nullptr, idle_wait_ms, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
             continue;
         }
+        const bool pacing_probe_enabled = config::general_settings.esp_sync_probe;
+        const auto pacing_started = pacing_probe_enabled ? std::chrono::steady_clock::now()
+                                                         : std::chrono::steady_clock::time_point{};
         if (!pace_frame(frame_clock, fps_timer))
             continue;
+        const float pacing_wait_ms = pacing_probe_enabled
+                                         ? std::chrono::duration<float, std::milli>(
+                                               std::chrono::steady_clock::now() - pacing_started).count()
+                                         : 0.0f;
 
         std::optional<diagnostics::performance::scope> render_profile{};
         render_profile.emplace(diagnostics::performance::zone::render_frame);
         const auto render_transition = m_window_tracker.transition_revision();
         const auto render_generation = m_presentation_generation;
-        const bool sync_probe_enabled = config::general_settings.esp_sync_probe;
+        const bool sync_probe_enabled = pacing_probe_enabled;
         const auto frame_started = sync_probe_enabled ? std::chrono::steady_clock::now()
                                                       : std::chrono::steady_clock::time_point{};
         build_frame();
@@ -838,8 +845,10 @@ bool overlay_t::run()
         ui::esp_sync::present_metrics present_timing{};
         const auto outcome = present_frame(present_recovery, sync_probe_enabled ? &present_timing : nullptr);
         if (sync_probe_enabled)
-            ui::esp_sync::bound_probe().on_present(present_timing, frame_build_ms,
-                                                   outcome == present_outcome::dropped);
+            ui::esp_sync::bound_probe().on_present(
+                present_timing, frame_build_ms, pacing_wait_ms,
+                outcome == present_outcome::dropped, config::general_settings.performance_mode,
+                m_use_gpu && config::general_settings.use_gpu, m_window_tracker.refresh_rate());
         if (outcome == present_outcome::failed)
         {
             completed = false;
