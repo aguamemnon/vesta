@@ -26,6 +26,7 @@
 #include <wrl/client.h>
 #include <ui/menu/card_metrics.hpp>
 #include <ui/overlay/overlay.hpp>
+#include <ui/overlay/esp_sync_probe.hpp>
 
 namespace ui
 {
@@ -40,6 +41,7 @@ enum class report_outcome
     failed
 };
 report_outcome g_report_outcome{}; // Render thread only.
+report_outcome g_sync_csv_outcome{}; // Render thread only.
 
 // The "System" line of a bug report: Windows build number and the first graphics adapter's marketing name. Neither
 // identifies a person; both are what the issue template asks for.
@@ -153,10 +155,26 @@ void draw_general_tab()
         status = "Last session crashed";
         status_failed = true;
     }
-    card_in_column("engine", "ENGINE", 6 + (status ? 1 : 0), 1,
+    card_in_column("engine", "ENGINE", 9 + (status ? 1 : 0) +
+                   (g_sync_csv_outcome != report_outcome::none ? 1 : 0), 1,
                    [&]
                    {
                        toggle_row("Performance Mode (90/60 Hz)", p.performance_mode);
+                       toggle_row("ESP Sync Probe", p.esp_sync_probe);
+                       if (button_row("Save ESP Sync CSV", "Save", row_action_icon::save))
+                           g_sync_csv_outcome = esp_sync::bound_probe().save_csv()
+                                                    ? report_outcome::saved : report_outcome::failed;
+                       if (button_row("Clear Sync Samples", "Clear", row_action_icon::none))
+                       {
+                           esp_sync::bound_probe().clear();
+                           g_sync_csv_outcome = report_outcome::none;
+                       }
+                       if (g_sync_csv_outcome != report_outcome::none)
+                           ImGui::TextColored(g_sync_csv_outcome == report_outcome::saved
+                                                  ? k_text_muted : ImVec4{1.0f, 0.42f, 0.45f, 1.0f},
+                                              "%s", g_sync_csv_outcome == report_outcome::saved
+                                                         ? "ESP CSV saved to Logs / vesta-esp-sync.csv"
+                                                         : "No sync samples yet or save failed");
                        toggle_popup_row("FPS Limiter", p.limit_fps, 1,
                                         [&] { slider_row("Maximum FPS", p.fps_limit, 30, 1000); });
                        toggle_row("GPU Effects", p.use_gpu);
