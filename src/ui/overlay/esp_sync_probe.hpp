@@ -6,9 +6,11 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <system_error>
@@ -116,10 +118,10 @@ public:
         { canvas->AddText(ImVec2{panel_x + 12.0f, y}, color, value); };
 
         print(30.0f, IM_COL32(242, 244, 249, 255), "ESP SYNC PROBE | passive 10 Hz");
-        if (!frame || !live_camera)
+        if (!frame || !frame->world || !live_camera)
         {
             print(53.0f, IM_COL32(242, 175, 98, 255),
-                  !frame ? "Waiting for a valid pose frame" : "Current camera unavailable");
+                  !frame || !frame->world ? "Waiting for a valid pose frame" : "Current camera unavailable");
             print(77.0f, IM_COL32(176, 188, 205, 255), "Enable player ESP / enter a match");
             return;
         }
