@@ -69,6 +69,8 @@ class probe
         bool performance_mode{};
         bool gpu_effects{};
         std::uint32_t display_refresh_hz{};
+        std::uint32_t pose_target_hz{};
+        std::uint32_t gpu_vendor_id{};
     };
 
     struct capture
@@ -164,7 +166,8 @@ public:
 
     void on_present(const present_metrics& metrics, float frame_build_ms, float pacing_wait_ms,
                     bool dropped, bool performance_mode, bool gpu_effects,
-                    std::uint32_t display_refresh_hz) noexcept
+                    std::uint32_t display_refresh_hz, std::uint32_t pose_target_hz,
+                    std::uint32_t gpu_vendor_id) noexcept
     {
         const auto now = clock::now();
         m_last_present = metrics;
@@ -214,6 +217,8 @@ public:
         r.performance_mode = performance_mode;
         r.gpu_effects = gpu_effects;
         r.display_refresh_hz = display_refresh_hz;
+        r.pose_target_hz = pose_target_hz;
+        r.gpu_vendor_id = gpu_vendor_id;
         m_rows[m_head] = r;
         m_head = (m_head + 1) % k_capacity;
         m_count = std::min(m_count + 1, k_capacity);
@@ -393,7 +398,8 @@ public:
                   "frame_build_ms,pose_to_present_ms,world_to_present_ms,bone_to_present_ms,"
                   "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
                   "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms,"
-                  "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz\n";
+                  "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz,"
+                  "pose_target_hz,gpu_vendor_id\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -411,7 +417,8 @@ public:
                    << s.simulation_time << ',' << (s.simulation_valid ? 1 : 0) << ','
                    << s.sim_unchanged_ms << ',' << s.pacing_wait_ms << ','
                    << (s.performance_mode ? 1 : 0) << ',' << (s.gpu_effects ? 1 : 0) << ','
-                   << s.display_refresh_hz << '\n';
+                   << s.display_refresh_hz << ','
+                   << s.pose_target_hz << ',' << s.gpu_vendor_id << '\n';
         }
         output.flush();
         return output.good();
