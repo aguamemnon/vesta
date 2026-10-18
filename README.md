@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: Renderer stabilization v1.2.8
+## Fork preview: ESP Sync Probe v1.2.9
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
@@ -30,6 +30,13 @@ Vesta's external DX11 overlay independent of CS2's own FPS limit.
 - v1.2.8 additionally **coalesces settings writes** outside the menu to avoid
   repeatedly writing to disk on the render thread while a script edits settings.
 - [Renderer performance details and A/B testing](docs/render-performance.md).
+
+**v1.2.9:** Optional **Misc → General → Engine → ESP Sync Probe** visualizes
+one enemy head projected with the **live camera** (cyan circle) and the
+**pose-captured camera** (orange cross), displays pose/world/bone ages, and
+records up to three minutes at 10 Hz. Click **Save ESP Sync CSV** to export
+`vesta-esp-sync.csv` into the Logs folder; nothing is logged to disk until
+you click Save. [Test protocol](docs/esp-sync-probe.md).
 
 Other experimental, optional features remain available: Anti-Aim Observer,
 Duel History, compact **Threat Direction** (maximum one target, no collision
