@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: ESP Sync Probe v1.2.10
+## Fork preview: ESP Sync Probe v1.2.11
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
@@ -44,6 +44,16 @@ and frame pacing. It counts repeated pose frames, records valid/invalid
 simulation timestamps without fabricating missing ticks, and stamps the
 actual Performance Mode / GPU Effects state of each recording. This is a
 diagnostic-only update; normal ESP and combat behavior are unchanged.
+
+**v1.2.11:** Performance Mode now targets the display refresh (165 Hz on
+a 165 Hz monitor) instead of fixed 90/60 Hz caps. Player bone sampling was
+moved off the DX11 render thread into a dedicated, interruptible worker
+publishing immutable pose frames; no additional game-world tick frequency is
+claimed (the world sampler remains 64 Hz). Actual DX11 GPU vendor (NVIDIA,
+AMD or other) is detected and shown in the menu, and stamped into the
+diagnostic CSV. The optimized backend remains portable DirectX 11; it does
+not load untested vendor-specific DLLs. FPS targets can still be limited by
+hardware, reads and compositor pacing.
 
 Other experimental, optional features remain available: Anti-Aim Observer,
 Duel History, compact **Threat Direction** (maximum one target, no collision
