@@ -239,6 +239,8 @@ struct general_profile
     // Conserves GPU time and limits blocking memory reads on the render thread.
     // A user can turn this off to compare rendering behavior.
     bool performance_mode{true};
+    // Passive camera/pose comparison and opt-in 10 Hz telemetry; off by default.
+    bool esp_sync_probe{false};
     bool use_gpu{true};
 };
 
