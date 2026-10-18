@@ -127,7 +127,7 @@ void player_pose_sampler::sample_once()
         auto bone_captured_at = std::chrono::steady_clock::now();
         if (bones.is_valid())
         {
-            m_last_valid[player.pawn] = {player.bone_cache, player.model_path, bones, now};
+            m_last_valid[player.pawn] = {player.bone_cache, player.model_path, bones, bone_captured_at};
         }
         else
         {
