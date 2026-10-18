@@ -65,6 +65,10 @@ class probe
         float simulation_time{};
         float sim_unchanged_ms{-1.0f};
         bool simulation_valid{};
+        float pacing_wait_ms{};
+        bool performance_mode{};
+        bool gpu_effects{};
+        std::uint32_t display_refresh_hz{};
     };
 
     struct capture
@@ -94,6 +98,7 @@ class probe
     std::uint64_t m_present_drops{};
     present_metrics m_last_present{};
     float m_last_build_ms{};
+    float m_last_pacing_wait_ms{};
     float m_last_pose_to_present_ms{-1.0f};
     std::uint64_t m_last_pose_sequence{};
     bool m_last_pose_valid{};
@@ -142,6 +147,7 @@ public:
         m_present_drops = 0;
         m_last_present = {};
         m_last_build_ms = 0.0f;
+        m_last_pacing_wait_ms = 0.0f;
         m_last_pose_to_present_ms = -1.0f;
         m_last_pose_sequence = 0;
         m_last_pose_valid = false;
@@ -156,11 +162,14 @@ public:
 
     [[nodiscard]] std::size_t count() const noexcept { return m_count; }
 
-    void on_present(const present_metrics& metrics, float frame_build_ms, bool dropped) noexcept
+    void on_present(const present_metrics& metrics, float frame_build_ms, float pacing_wait_ms,
+                    bool dropped, bool performance_mode, bool gpu_effects,
+                    std::uint32_t display_refresh_hz) noexcept
     {
         const auto now = clock::now();
         m_last_present = metrics;
         m_last_build_ms = std::max(0.0f, frame_build_ms);
+        m_last_pacing_wait_ms = std::max(0.0f, pacing_wait_ms);
         m_present_ms = metrics.total_ms;
         m_present_dropped = dropped;
         if (dropped)
@@ -201,6 +210,10 @@ public:
         r.simulation_time = m_pending.simulation_time;
         r.simulation_valid = m_pending.simulation_valid;
         r.sim_unchanged_ms = m_last_sim_unchanged_ms;
+        r.pacing_wait_ms = m_last_pacing_wait_ms;
+        r.performance_mode = performance_mode;
+        r.gpu_effects = gpu_effects;
+        r.display_refresh_hz = display_refresh_hz;
         m_rows[m_head] = r;
         m_head = (m_head + 1) % k_capacity;
         m_count = std::min(m_count + 1, k_capacity);
@@ -315,8 +328,8 @@ public:
                       m_last_present.native_dxgi_ms, m_last_present.retry_wait_ms,
                       m_reused_pose_frames_since_record, m_draw_frames_since_record);
         print(111.0f, IM_COL32(210, 219, 229, 255), line);
-        std::snprintf(line, sizeof(line), "Pose -> Present %.1fms | Build %.1fms | Retries %u",
-                      m_last_pose_to_present_ms, m_last_build_ms, m_last_present.still_drawing);
+        std::snprintf(line, sizeof(line), "Pose->Present %.1fms | Build %.1fms | Pace %.1fms",
+                      m_last_pose_to_present_ms, m_last_build_ms, m_last_pacing_wait_ms);
         print(130.0f, IM_COL32(210, 219, 229, 255), line);
         print(151.0f, IM_COL32(78, 215, 236, 245), "O live camera");
         print(165.0f, IM_COL32(255, 175, 85, 255), "X pose camera, same bone");
@@ -379,7 +392,8 @@ public:
                   "simulation_tick,fallback_bones,present_dropped,pose_sequence,"
                   "frame_build_ms,pose_to_present_ms,world_to_present_ms,bone_to_present_ms,"
                   "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
-                  "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms\n";
+                  "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms,"
+                  "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -395,7 +409,9 @@ public:
                    << s.present_calls << ',' << s.present_retries << ','
                    << s.draw_frames << ',' << s.repeated_pose_frames << ','
                    << s.simulation_time << ',' << (s.simulation_valid ? 1 : 0) << ','
-                   << s.sim_unchanged_ms << '\n';
+                   << s.sim_unchanged_ms << ',' << s.pacing_wait_ms << ','
+                   << (s.performance_mode ? 1 : 0) << ',' << (s.gpu_effects ? 1 : 0) << ','
+                   << s.display_refresh_hz << '\n';
         }
         output.flush();
         return output.good();
