@@ -95,6 +95,7 @@ void player_pose_sampler::sample_once()
     auto frame = m_frames.acquire();
     frame->players.clear();
     frame->camera = {};
+    frame->camera_captured_at = {};
     frame->identity = identity;
     frame->level = level;
     frame->sequence = m_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
@@ -123,6 +124,7 @@ void player_pose_sampler::sample_once()
 
         auto bones = game::skeletons().get(player.bone_cache);
         bool reused{};
+        auto bone_captured_at = std::chrono::steady_clock::now();
         if (bones.is_valid())
         {
             m_last_valid[player.pawn] = {player.bone_cache, player.model_path, bones, now};
@@ -137,10 +139,12 @@ void player_pose_sampler::sample_once()
                 continue;
             }
             bones = cached->second.bones;
+            bone_captured_at = cached->second.timestamp;
             reused = true;
         }
 
-        frame->players.push_back({index, player.pawn, player.bone_cache, player.model_path, bones, reused});
+        frame->players.push_back({index, player.pawn, player.bone_cache, player.model_path, bones,
+                                  bone_captured_at, reused});
     }
 
     std::erase_if(m_last_valid,
@@ -148,6 +152,7 @@ void player_pose_sampler::sample_once()
 
     if (!game::camera().sample_presentation(frame->camera))
         return;
+    frame->camera_captured_at = std::chrono::steady_clock::now();
     const auto final_local = game::local_player().snapshot();
     const auto final_level = game::level().name();
     const auto final_presentation = m_presentation.load(std::memory_order_acquire);
