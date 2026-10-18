@@ -26,6 +26,7 @@
 #include <wrl/client.h>
 #include <ui/menu/card_metrics.hpp>
 #include <ui/overlay/overlay.hpp>
+#include <ui/overlay/graphics_device.hpp>
 #include <ui/overlay/esp_sync_probe.hpp>
 
 namespace ui
@@ -155,11 +156,15 @@ void draw_general_tab()
         status = "Last session crashed";
         status_failed = true;
     }
-    card_in_column("engine", "ENGINE", 9 + (status ? 1 : 0) +
+    card_in_column("engine", "ENGINE", 10 + (status ? 1 : 0) +
                    (g_sync_csv_outcome != report_outcome::none ? 1 : 0), 1,
                    [&]
                    {
-                       toggle_row("Performance Mode (90/60 Hz)", p.performance_mode);
+                       toggle_row("Performance Mode (Monitor Hz)", p.performance_mode);
+                       const auto& overlay = ui::bound_overlay();
+                       ImGui::TextColored(k_text_muted, "DX11 Auto GPU: %s (%u MiB) | Display: %u Hz",
+                                          ui::overlay_gpu_vendor_name(overlay.gpu_vendor_id()),
+                                          overlay.gpu_dedicated_memory_mb(), overlay.display_refresh_hz());
                        toggle_row("ESP Sync Probe", p.esp_sync_probe);
                        if (button_row("Save ESP Sync CSV", "Save", row_action_icon::save))
                            g_sync_csv_outcome = esp_sync::bound_probe().save_csv()
