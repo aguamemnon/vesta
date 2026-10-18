@@ -16,33 +16,41 @@ struct feature_plan
     const bool gpu = hardware_device && use_gpu;
     return {attached && (player_esp || (gpu && chams)), gpu};
 }
-// Compute an overlay-only frame budget. The game is never frame-limited.
+// Performance Mode tracks the actual display rate, without old 90 Hz cap.
+// Explicitly configured FPS limits remain respected; the game's frame
+// pacing is never modified. Unknown refresh falls back to a 165 Hz target.
 [[nodiscard]] constexpr std::uint32_t overlay_frame_rate(std::uint32_t configured_rate,
                                                          std::uint32_t display_refresh,
                                                          bool performance_mode) noexcept
 {
     if (!performance_mode)
         return configured_rate;
-    const auto limit = display_refresh ? std::min(display_refresh, 90u) : 90u;
-    return configured_rate ? std::min(configured_rate, limit) : limit;
+    const auto target = display_refresh ? display_refresh : 165u;
+    return configured_rate ? std::min(configured_rate, target) : target;
 }
 
 static_assert(overlay_frame_rate(240, 60, true) == 60);
-static_assert(overlay_frame_rate(240, 144, true) == 90);
+static_assert(overlay_frame_rate(240, 144, true) == 144);
+static_assert(overlay_frame_rate(240, 165, true) == 165);
+static_assert(overlay_frame_rate(240, 240, true) == 240);
 static_assert(overlay_frame_rate(45, 144, true) == 45);
-static_assert(overlay_frame_rate(0, 0, true) == 90);
+static_assert(overlay_frame_rate(0, 0, true) == 165);
 static_assert(overlay_frame_rate(0, 144, false) == 0);
 static_assert(overlay_frame_rate(240, 60, false) == 240);
 
+// Reads now take place on an independent worker, so they no longer block
+// ImGui or DXGI. Match the configured refresh target in Performance Mode.
+// Outside Performance Mode, follow the configured FPS budget up to 240 Hz.
 [[nodiscard]] constexpr std::uint32_t pose_sample_limit(bool limited, std::uint32_t fps,
-                                                        bool performance_mode = false) noexcept
+                                                        bool performance_mode = false,
+                                                        std::uint32_t display_refresh = 0) noexcept
 {
-    // Pose snapshots involve remote process/bone reads ON the presentation
-    // thread. Previously a capped 240 FPS overlay sampled all players on
-    // every frame. A 60 Hz ceiling prevents these reads from monopolizing
-    // rendering without changing the update loop or game input.
     if (performance_mode)
-        return 60u;
-    return limited && fps > 0 && fps <= 240 ? 0u : 240u;
+        return overlay_frame_rate(limited ? fps : 0u, display_refresh, true);
+    return limited && fps > 0 ? std::min(fps, 240u) : 240u;
 }
+static_assert(pose_sample_limit(true, 240, true, 165) == 165);
+static_assert(pose_sample_limit(true, 240, true, 144) == 144);
+static_assert(pose_sample_limit(false, 240, true, 165) == 165);
+static_assert(pose_sample_limit(false, 240, false, 165) == 240);
 } // namespace ui
