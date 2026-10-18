@@ -631,9 +631,12 @@ void overlay_t::submit_frame()
 // queued more GPU work behind a GPU that was already behind, and under a busy game (the uncapped menu scene in
 // windowed mode) the overlay then lost nearly every frame. A refused tearing flag is turned off once. A failed
 // Present either schedules a surface rebuild or ends the overlay.
-overlay_t::present_outcome overlay_t::present_frame(ui::present_recovery& recovery)
+overlay_t::present_outcome overlay_t::present_frame(ui::present_recovery& recovery,
+                                                    esp_sync::present_metrics* metrics)
 {
     const auto present_started = std::chrono::steady_clock::now();
+    if (metrics)
+        *metrics = {};
     const auto patience = std::chrono::microseconds(1'000'000 / std::clamp(m_window_tracker.refresh_rate(), 30u, 500u));
     HRESULT present_result{};
     bool dropped{};
@@ -642,12 +645,29 @@ overlay_t::present_outcome overlay_t::present_frame(ui::present_recovery& recove
         VESTA_PERF_SCOPE(present);
         const UINT present_flags =
             (m_present_tearing_enabled ? DXGI_PRESENT_ALLOW_TEARING : 0) | DXGI_PRESENT_DO_NOT_WAIT;
+        const auto native_started = metrics ? std::chrono::steady_clock::now()
+                                            : std::chrono::steady_clock::time_point{};
         present_result = m_swap_chain->Present(0, present_flags);
+        if (metrics)
+        {
+            ++metrics->calls;
+            metrics->native_dxgi_ms +=
+                std::chrono::duration<float, std::milli>(
+                    std::chrono::steady_clock::now() - native_started).count();
+        }
         if (present_result == DXGI_ERROR_WAS_STILL_DRAWING)
         {
+            if (metrics)
+                ++metrics->still_drawing;
             if (std::chrono::steady_clock::now() - present_started < patience)
             {
+                const auto retry_started = metrics ? std::chrono::steady_clock::now()
+                                                   : std::chrono::steady_clock::time_point{};
                 ::MsgWaitForMultipleObjectsEx(0, nullptr, 1, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+                if (metrics)
+                    metrics->retry_wait_ms +=
+                        std::chrono::duration<float, std::milli>(
+                            std::chrono::steady_clock::now() - retry_started).count();
                 continue;
             }
             dropped = true;
@@ -660,6 +680,9 @@ overlay_t::present_outcome overlay_t::present_frame(ui::present_recovery& recove
         }
         break;
     }
+    if (metrics)
+        metrics->total_ms = std::chrono::duration<float, std::milli>(
+            std::chrono::steady_clock::now() - present_started).count();
     if (std::chrono::steady_clock::now() - present_started > std::chrono::milliseconds(250))
     {
         if (!m_frame_latency_unreliable)
@@ -764,6 +787,9 @@ bool overlay_t::run()
         render_profile.emplace(diagnostics::performance::zone::render_frame);
         const auto render_transition = m_window_tracker.transition_revision();
         const auto render_generation = m_presentation_generation;
+        const bool sync_probe_enabled = config::general_settings.esp_sync_probe;
+        const auto frame_started = sync_probe_enabled ? std::chrono::steady_clock::now()
+                                                      : std::chrono::steady_clock::time_point{};
         build_frame();
         {
             VESTA_PERF_SCOPE(config_fingerprint);
@@ -791,6 +817,10 @@ bool overlay_t::run()
             }
         }
         submit_frame();
+        const float frame_build_ms = sync_probe_enabled
+                                         ? std::chrono::duration<float, std::milli>(
+                                               std::chrono::steady_clock::now() - frame_started).count()
+                                         : 0.0f;
         // Keep CPU/GPU command construction separate from message dispatch and
         // Present retry waits in the telemetry.
         render_profile.reset();
@@ -805,15 +835,11 @@ bool overlay_t::run()
             if (!m_presentation_attached || !m_overlay_visible || m_presentation_generation != render_generation)
                 continue;
         }
-        const auto sync_probe_enabled = config::general_settings.esp_sync_probe;
-        const auto present_call_started = sync_probe_enabled ? std::chrono::steady_clock::now()
-                                                             : std::chrono::steady_clock::time_point{};
-        const auto outcome = present_frame(present_recovery);
+        ui::esp_sync::present_metrics present_timing{};
+        const auto outcome = present_frame(present_recovery, sync_probe_enabled ? &present_timing : nullptr);
         if (sync_probe_enabled)
-            ui::esp_sync::bound_probe().on_present(
-                std::chrono::duration<float, std::milli>(
-                    std::chrono::steady_clock::now() - present_call_started).count(),
-                outcome == present_outcome::dropped);
+            ui::esp_sync::bound_probe().on_present(present_timing, frame_build_ms,
+                                                   outcome == present_outcome::dropped);
         if (outcome == present_outcome::failed)
         {
             completed = false;
