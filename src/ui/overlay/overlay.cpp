@@ -849,7 +849,13 @@ bool overlay_t::run()
             ui::esp_sync::bound_probe().on_present(
                 present_timing, frame_build_ms, pacing_wait_ms,
                 outcome == present_outcome::dropped, config::general_settings.performance_mode,
-                m_use_gpu && config::general_settings.use_gpu, m_window_tracker.refresh_rate());
+                m_use_gpu && config::general_settings.use_gpu, m_window_tracker.refresh_rate(),
+                ui::pose_sample_limit(config::general_settings.limit_fps,
+                                      static_cast<std::uint32_t>(
+                                          std::max(0, config::general_settings.fps_limit)),
+                                      config::general_settings.performance_mode,
+                                      m_window_tracker.refresh_rate()),
+                m_gpu_vendor_id);
         if (outcome == present_outcome::failed)
         {
             completed = false;
