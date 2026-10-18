@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -112,6 +113,8 @@ struct player_snapshot
     std::int32_t ping{};
     std::int32_t armor{};
     std::int32_t simulation_tick{};
+    // Read-pass timestamp for diagnosing the age of world snapshots.
+    std::chrono::steady_clock::time_point sampled_at{};
     std::int32_t controller_index{};
     float simulation_time{};
     std::uint64_t spotted_by_mask{};
