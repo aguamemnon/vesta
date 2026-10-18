@@ -59,6 +59,9 @@ public:
     [[nodiscard]] float ui_dpi_scale() const noexcept { return m_ui_dpi_scale; }
     [[nodiscard]] std::uint32_t ui_reference_width() const noexcept { return m_ui_reference_width; }
     [[nodiscard]] std::uint32_t ui_reference_height() const noexcept { return m_ui_reference_height; }
+    [[nodiscard]] std::uint32_t gpu_vendor_id() const noexcept { return m_gpu_vendor_id; }
+    [[nodiscard]] std::uint32_t gpu_dedicated_memory_mb() const noexcept { return m_gpu_dedicated_memory_mb; }
+    [[nodiscard]] std::uint32_t display_refresh_hz() const noexcept { return m_window_tracker.refresh_rate(); }
     [[nodiscard]] bool ui_uses_fullscreen_canvas() const noexcept { return m_ui_fullscreen_canvas; }
     [[nodiscard]] HWND hwnd() const { return m_hwnd; }
     [[nodiscard]] bool combat_input_ready() const noexcept
@@ -187,6 +190,8 @@ private:
     std::chrono::steady_clock::time_point m_present_window_start{};
     diagnostics::rate_gate m_starved_note{std::chrono::seconds(30)};
     bool m_use_gpu{true};
+    std::uint32_t m_gpu_vendor_id{};
+    std::uint32_t m_gpu_dedicated_memory_mb{};
     ui::presentation_retry m_presentation_retry{};
     std::uint64_t m_presentation_generation{};
     ID3D11Texture2D* m_back_buffer{};
