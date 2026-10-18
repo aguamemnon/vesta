@@ -16,6 +16,7 @@
 #include <ui/overlay/hud.hpp>
 #include <ui/overlay/graphics_device.hpp>
 #include <ui/overlay/render_policy.hpp>
+#include <ui/overlay/esp_sync_probe.hpp>
 #include <scripting/runtime.hpp>
 #include <config/hotkeys.hpp>
 #include <config/library.hpp>
@@ -104,7 +105,8 @@ constexpr bool k_use_composition_backend = true;
            visuals.m_bomb.enabled || visuals.m_no_flash.enabled || visuals.m_no_smoke.enabled ||
            visuals.m_crosshair.enabled || (visuals.m_player.enabled && visuals.m_chams.enabled) ||
            visuals.m_radar.enabled || visuals.m_sound.enabled || misc.m_grenades.enabled ||
-           misc.m_nade_helper.enabled || misc.m_angle_placement.enabled || misc.m_watermark.enabled || misc.m_spectator_list.enabled ||
+           misc.m_nade_helper.enabled || misc.m_angle_placement.enabled || misc.esp_sync_probe || misc.m_watermark.enabled ||
+           misc.m_spectator_list.enabled ||
            misc.m_event_log.enabled || misc.m_keybind_list.enabled || misc.m_bullet_tracers.enabled ||
            misc.m_hitmarker.enabled || misc.m_hitsound.enabled || misc.m_hitsound.show_damage ||
            (combat.aimbot_enabled && combat.aimbot_draw_fov) || combat.penetration_crosshair;
@@ -431,7 +433,8 @@ void overlay_t::update_frame_state()
     synchronize_window_bounds();
     synchronize_content_visibility();
     const auto feature_plan =
-        ui::plan_features(m_presentation_attached, config::visual_settings.m_player.active(),
+        ui::plan_features(m_presentation_attached,
+                          config::visual_settings.m_player.active() || config::general_settings.esp_sync_probe,
                           config::visual_settings.m_chams.enabled, m_use_gpu, config::general_settings.use_gpu);
     game::render_poses().set_presentation_state(
         feature_plan.sample_players,
@@ -515,7 +518,9 @@ void overlay_t::draw_world(render::draw::draw_list& draw_list)
 {
     const auto pose_frame = game::render_poses().acquire_for_presentation();
     game::presentation_camera_sample camera{};
-    if (game::camera().sample_presentation(camera))
+    const bool current_camera_valid = game::camera().sample_presentation(camera);
+    const auto current_camera_at = std::chrono::steady_clock::now();
+    if (current_camera_valid)
         game::camera().begin_presentation_frame(camera, m_render_width, m_render_height);
     else if (pose_frame)
         game::camera().begin_presentation_frame(pose_frame->camera, m_render_width, m_render_height);
@@ -545,6 +550,11 @@ void overlay_t::draw_world(render::draw::draw_list& draw_list)
         features::visuals::bullet_impacts().on_render(draw_list);
         features::aimbot::aim().on_render(draw_list);
     }
+    // Opt-in comparison of identical bones with the live and captured camera.
+    // No aim, target selection, or normal ESP geometry is changed.
+    if (config::general_settings.esp_sync_probe)
+        ui::esp_sync::bound_probe().draw(pose_frame, current_camera_valid ? &camera : nullptr,
+                                        m_render_width, m_render_height, current_camera_at);
 }
 
 // Records the whole ImGui frame: world visuals (hidden while spectated, when the user asked for it), scripts, HUD
@@ -795,7 +805,15 @@ bool overlay_t::run()
             if (!m_presentation_attached || !m_overlay_visible || m_presentation_generation != render_generation)
                 continue;
         }
+        const auto sync_probe_enabled = config::general_settings.esp_sync_probe;
+        const auto present_call_started = sync_probe_enabled ? std::chrono::steady_clock::now()
+                                                             : std::chrono::steady_clock::time_point{};
         const auto outcome = present_frame(present_recovery);
+        if (sync_probe_enabled)
+            ui::esp_sync::bound_probe().on_present(
+                std::chrono::duration<float, std::milli>(
+                    std::chrono::steady_clock::now() - present_call_started).count(),
+                outcome == present_outcome::dropped);
         if (outcome == present_outcome::failed)
         {
             completed = false;
