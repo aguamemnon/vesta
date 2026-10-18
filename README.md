@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: ESP Sync Probe v1.2.9
+## Fork preview: ESP Sync Probe v1.2.10
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
@@ -37,6 +37,13 @@ one enemy head projected with the **live camera** (cyan circle) and the
 records up to three minutes at 10 Hz. Click **Save ESP Sync CSV** to export
 `vesta-esp-sync.csv` into the Logs folder; nothing is logged to disk until
 you click Save. [Test protocol](docs/esp-sync-probe.md).
+
+**v1.2.10:** The CSV now logs **the same frame through pose capture, build, DXGI
+Present, and completion**, with native `Present` calls separated from retries
+and frame pacing. It counts repeated pose frames, records valid/invalid
+simulation timestamps without fabricating missing ticks, and stamps the
+actual Performance Mode / GPU Effects state of each recording. This is a
+diagnostic-only update; normal ESP and combat behavior are unchanged.
 
 Other experimental, optional features remain available: Anti-Aim Observer,
 Duel History, compact **Threat Direction** (maximum one target, no collision
