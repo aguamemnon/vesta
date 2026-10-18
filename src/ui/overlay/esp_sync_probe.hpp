@@ -22,6 +22,17 @@
 
 namespace ui::esp_sync
 {
+// Timing breakdown measured around Present(0, DO_NOT_WAIT) only while
+// the probe is enabled. No GPU timestamp query and no additional wait.
+struct present_metrics
+{
+    float total_ms{};
+    float native_dxgi_ms{};
+    float retry_wait_ms{};
+    std::uint32_t calls{};
+    std::uint32_t still_drawing{};
+};
+
 class probe
 {
     using clock = std::chrono::steady_clock;
@@ -40,6 +51,36 @@ class probe
         bool fallback_bones{};
         bool present_dropped{};
         std::uint64_t pose_sequence{};
+        // Added in v1.2.10; previous columns remain in their original order.
+        float frame_build_ms{};
+        float pose_to_present_ms{};
+        float world_to_present_ms{};
+        float bone_to_present_ms{};
+        float native_dxgi_present_ms{};
+        float present_retry_wait_ms{};
+        std::uint32_t present_calls{};
+        std::uint32_t present_retries{};
+        std::uint32_t draw_frames{};
+        std::uint32_t repeated_pose_frames{};
+        float simulation_time{};
+        float sim_unchanged_ms{-1.0f};
+        bool simulation_valid{};
+    };
+
+    struct capture
+    {
+        bool valid{};
+        clock::time_point pose_at{};
+        clock::time_point world_at{};
+        clock::time_point bone_at{};
+        clock::time_point camera_at{};
+        std::uint64_t sequence{};
+        int simulation_tick{-1};
+        float simulation_time{};
+        bool simulation_valid{};
+        bool fallback_bones{};
+        float camera_gap_ms{-1.0f};
+        float camera_shift_px{};
     };
 
     static constexpr std::size_t k_capacity = 1800; // 3 minutes @ 10 samples/s
@@ -51,6 +92,21 @@ class probe
     float m_present_ms{};
     bool m_present_dropped{};
     std::uint64_t m_present_drops{};
+    present_metrics m_last_present{};
+    float m_last_build_ms{};
+    float m_last_pose_to_present_ms{-1.0f};
+    std::uint64_t m_last_pose_sequence{};
+    bool m_last_pose_valid{};
+    std::uint32_t m_draw_frames_since_record{};
+    std::uint32_t m_reused_pose_frames_since_record{};
+    capture m_pending{};
+    // A simulation tick of -1 is invalid in current captures. Track changes
+    // in simulation time when present, otherwise mark the metric unavailable.
+    std::uintptr_t m_last_sim_pawn{};
+    int m_last_sim_tick{-1};
+    float m_last_sim_time{};
+    clock::time_point m_last_sim_change{};
+    float m_last_sim_unchanged_ms{-1.0f};
 
     [[nodiscard]] static float age_ms(clock::time_point now, clock::time_point observed) noexcept
     {
@@ -84,16 +140,71 @@ public:
         m_present_ms = 0.0f;
         m_present_dropped = false;
         m_present_drops = 0;
+        m_last_present = {};
+        m_last_build_ms = 0.0f;
+        m_last_pose_to_present_ms = -1.0f;
+        m_last_pose_sequence = 0;
+        m_last_pose_valid = false;
+        m_draw_frames_since_record = m_reused_pose_frames_since_record = 0;
+        m_pending = {};
+        m_last_sim_pawn = 0;
+        m_last_sim_tick = -1;
+        m_last_sim_time = 0.0f;
+        m_last_sim_change = {};
+        m_last_sim_unchanged_ms = -1.0f;
     }
 
     [[nodiscard]] std::size_t count() const noexcept { return m_count; }
 
-    void on_present(float call_ms, bool dropped) noexcept
+    void on_present(const present_metrics& metrics, float frame_build_ms, bool dropped) noexcept
     {
-        m_present_ms = std::max(0.0f, call_ms);
+        const auto now = clock::now();
+        m_last_present = metrics;
+        m_last_build_ms = std::max(0.0f, frame_build_ms);
+        m_present_ms = metrics.total_ms;
         m_present_dropped = dropped;
         if (dropped)
             ++m_present_drops;
+        m_last_pose_to_present_ms = m_pending.valid ? age_ms(now, m_pending.pose_at) : -1.0f;
+
+        if (!m_pending.valid)
+            return;
+        if (m_started == clock::time_point{})
+            m_started = now;
+        if (m_last_record != clock::time_point{} && now - m_last_record < std::chrono::milliseconds(100))
+            return;
+
+        m_last_record = now;
+        row r{};
+        r.elapsed_ms = age_ms(now, m_started);
+        r.pose_age_ms = age_ms(now, m_pending.pose_at);
+        r.world_age_ms = age_ms(now, m_pending.world_at);
+        r.bone_age_ms = age_ms(now, m_pending.bone_at);
+        r.camera_age_ms = age_ms(now, m_pending.camera_at);
+        r.camera_gap_ms = m_pending.camera_gap_ms;
+        r.camera_shift_px = m_pending.camera_shift_px;
+        r.present_call_ms = metrics.total_ms;
+        r.simulation_tick = m_pending.simulation_tick;
+        r.fallback_bones = m_pending.fallback_bones;
+        r.present_dropped = dropped;
+        r.pose_sequence = m_pending.sequence;
+        r.frame_build_ms = m_last_build_ms;
+        r.pose_to_present_ms = age_ms(now, m_pending.pose_at);
+        r.world_to_present_ms = age_ms(now, m_pending.world_at);
+        r.bone_to_present_ms = age_ms(now, m_pending.bone_at);
+        r.native_dxgi_present_ms = metrics.native_dxgi_ms;
+        r.present_retry_wait_ms = metrics.retry_wait_ms;
+        r.present_calls = metrics.calls;
+        r.present_retries = metrics.still_drawing;
+        r.draw_frames = m_draw_frames_since_record;
+        r.repeated_pose_frames = m_reused_pose_frames_since_record;
+        r.simulation_time = m_pending.simulation_time;
+        r.simulation_valid = m_pending.simulation_valid;
+        r.sim_unchanged_ms = m_last_sim_unchanged_ms;
+        m_rows[m_head] = r;
+        m_head = (m_head + 1) % k_capacity;
+        m_count = std::min(m_count + 1, k_capacity);
+        m_draw_frames_since_record = m_reused_pose_frames_since_record = 0;
     }
 
     // Called only while the opt-in diagnostic toggle is enabled. At most one
