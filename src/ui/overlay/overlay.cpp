@@ -1837,6 +1837,15 @@ bool overlay_t::initialize_graphics()
         return false;
     }
 
+    // The adapter is queried from the created DX11 device: on hybrid systems
+    // this is the GPU actually drawing Vesta, not simply adapter #0.
+    const auto gpu = ui::detect_overlay_gpu(m_device);
+    m_gpu_vendor_id = gpu.vendor_id;
+    m_gpu_dedicated_memory_mb = gpu.dedicated_memory_mb;
+    game::bound_memory().log.info(
+        "overlay GPU: {} (vendor={:#x}, dedicated={} MiB), screen refresh={} Hz, DX11",
+        ui::overlay_gpu_vendor_name(gpu.vendor_id), gpu.vendor_id,
+        gpu.dedicated_memory_mb, m_window_tracker.refresh_rate());
     const auto priority_result = ui::set_overlay_gpu_priority(m_device);
     if (FAILED(priority_result))
         write_overlay_lifecycle_event(diagnostics::event::graphics_low_priority_failed, priority_result);
