@@ -26,6 +26,10 @@
 
 namespace ui
 {
+namespace esp_sync
+{
+struct present_metrics;
+}
 class overlay_t
 {
 public:
@@ -97,7 +101,7 @@ private:
     void build_frame();
     void draw_world(render::draw::draw_list& draw_list);
     void submit_frame();
-    present_outcome present_frame(ui::present_recovery& recovery);
+    present_outcome present_frame(ui::present_recovery& recovery, esp_sync::present_metrics* metrics = nullptr);
     void note_present_outcome(bool dropped);
     void shutdown() noexcept;
     void synchronize_menu_focus();
