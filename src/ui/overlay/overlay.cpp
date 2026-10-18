@@ -440,7 +440,8 @@ void overlay_t::update_frame_state()
         feature_plan.sample_players,
         ui::pose_sample_limit(config::general_settings.limit_fps,
                               static_cast<std::uint32_t>(std::max(0, config::general_settings.fps_limit)),
-                              config::general_settings.performance_mode));
+                              config::general_settings.performance_mode,
+                              m_window_tracker.refresh_rate()));
     synchronize_menu_focus();
     apply_capture_policy();
 }
