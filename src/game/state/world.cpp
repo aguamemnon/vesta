@@ -744,6 +744,9 @@ void world_sampler::collect_players(const std::vector<entity_directory::cached>&
 // pawn cannot be read. Fields are read in blocks (remote_span) grouped by the object they live in.
 bool world_sampler::read_player(const player_pass& pass, const entity_directory::cached& entry, player_snapshot& p)
 {
+    // Sampling starts before the per-player remote reads; this is an upper
+    // bound on data age, not a server-authoritative interpolation timestamp.
+    p.sampled_at = pass.now;
     const auto& o = player_schema();
     const auto& process = m_services->process;
 
