@@ -26,6 +26,8 @@ struct sampled_player_pose
     std::uintptr_t bone_cache{};
     std::string_view model_path{};
     skeleton_reader::data bones{};
+    // Timestamp of the successful bone read, retained across fallback reuse.
+    std::chrono::steady_clock::time_point bone_captured_at{};
     bool reused_after_read_failure{};
 };
 
@@ -37,6 +39,7 @@ struct player_pose_frame
     std::chrono::steady_clock::time_point timestamp{};
     std::shared_ptr<const std::vector<player_snapshot>> world{};
     presentation_camera_sample camera{};
+    std::chrono::steady_clock::time_point camera_captured_at{};
     std::vector<sampled_player_pose> players{};
 };
 
