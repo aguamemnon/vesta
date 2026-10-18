@@ -216,12 +216,13 @@ public:
         if (!width || !height)
             return;
         const auto now = clock::now();
+        m_pending = {};
         auto* canvas = ImGui::GetForegroundDrawList();
         const auto w = static_cast<float>(width);
         const auto h = static_cast<float>(height);
         const auto panel_x = std::max(8.0f, w - 350.0f);
         const ImVec2 top{panel_x, 22.0f};
-        const ImVec2 bottom{panel_x + 338.0f, 139.0f};
+        const ImVec2 bottom{panel_x + 338.0f, 179.0f};
         canvas->AddRectFilled(top, bottom, IM_COL32(9, 13, 20, 216), 8.0f);
         canvas->AddRect(top, bottom, IM_COL32(120, 140, 159, 100), 8.0f);
 
@@ -236,6 +237,14 @@ public:
             print(77.0f, IM_COL32(176, 188, 205, 255), "Enable player ESP / enter a match");
             return;
         }
+
+        // Rendering can reuse a previously acquired pose several times.
+        // Count actual drawn frames, independently of the 10 Hz CSV cadence.
+        ++m_draw_frames_since_record;
+        if (m_last_pose_valid && frame->sequence == m_last_pose_sequence)
+            ++m_reused_pose_frames_since_record;
+        m_last_pose_sequence = frame->sequence;
+        m_last_pose_valid = true;
 
         const game::sampled_player_pose* selected{};
         const game::player_snapshot* selected_player{};
@@ -302,30 +311,51 @@ public:
                       static_cast<unsigned long long>(m_present_drops));
         print(91.0f, selected->reused_after_read_failure ? IM_COL32(249, 172, 90, 255)
                                                         : IM_COL32(210, 219, 229, 255), line);
-        print(112.0f, IM_COL32(78, 215, 236, 245), "O latest camera");
-        print(126.0f, IM_COL32(255, 175, 85, 255), "X pose camera (same bone)");
+        std::snprintf(line, sizeof(line), "DXGI %.1fms | Retry wait %.1fms | Reuse %u/%u",
+                      m_last_present.native_dxgi_ms, m_last_present.retry_wait_ms,
+                      m_reused_pose_frames_since_record, m_draw_frames_since_record);
+        print(111.0f, IM_COL32(210, 219, 229, 255), line);
+        std::snprintf(line, sizeof(line), "Pose -> Present %.1fms | Build %.1fms | Retries %u",
+                      m_last_pose_to_present_ms, m_last_build_ms, m_last_present.still_drawing);
+        print(130.0f, IM_COL32(210, 219, 229, 255), line);
+        print(151.0f, IM_COL32(78, 215, 236, 245), "O live camera");
+        print(165.0f, IM_COL32(255, 175, 85, 255), "X pose camera, same bone");
 
-        if (m_started == clock::time_point{})
-            m_started = now;
-        if (m_last_record != clock::time_point{} && now - m_last_record < std::chrono::milliseconds(100))
-            return;
-        m_last_record = now;
-        m_rows[m_head] = {
-            .elapsed_ms = age_ms(now, m_started),
-            .pose_age_ms = pose_age,
-            .world_age_ms = world_age,
-            .bone_age_ms = bone_age,
-            .camera_age_ms = camera_age,
-            .camera_gap_ms = gap,
-            .camera_shift_px = shift,
-            .present_call_ms = m_present_ms,
+        // The target snapshot is staged for on_present(), so all measurements
+        // in each CSV row are from a single render-to-present attempt.
+        const auto valid_sim_tick = selected_player->simulation_tick >= 0;
+        const auto valid_sim_time = std::isfinite(selected_player->simulation_time) &&
+                                    selected_player->simulation_time > 0.0f;
+        const bool sim_valid = valid_sim_tick || valid_sim_time;
+        if (selected_player->pawn != m_last_sim_pawn || !sim_valid)
+        {
+            m_last_sim_pawn = selected_player->pawn;
+            m_last_sim_tick = selected_player->simulation_tick;
+            m_last_sim_time = selected_player->simulation_time;
+            m_last_sim_change = sim_valid ? now : clock::time_point{};
+        }
+        else if ((valid_sim_tick && m_last_sim_tick != selected_player->simulation_tick) ||
+                 (valid_sim_time && std::abs(m_last_sim_time - selected_player->simulation_time) > 0.00001f))
+        {
+            m_last_sim_tick = selected_player->simulation_tick;
+            m_last_sim_time = selected_player->simulation_time;
+            m_last_sim_change = now;
+        }
+        m_last_sim_unchanged_ms = sim_valid ? age_ms(now, m_last_sim_change) : -1.0f;
+        m_pending = {
+            .valid = true,
+            .pose_at = frame->timestamp,
+            .world_at = selected_player->sampled_at,
+            .bone_at = selected->bone_captured_at,
+            .camera_at = frame->camera_captured_at,
+            .sequence = frame->sequence,
             .simulation_tick = selected_player->simulation_tick,
+            .simulation_time = valid_sim_time ? selected_player->simulation_time : 0.0f,
+            .simulation_valid = sim_valid,
             .fallback_bones = selected->reused_after_read_failure,
-            .present_dropped = m_present_dropped,
-            .pose_sequence = frame->sequence,
+            .camera_gap_ms = gap,
+            .camera_shift_px = shift
         };
-        m_head = (m_head + 1) % k_capacity;
-        m_count = std::min(m_count + 1, k_capacity);
     }
 
     // Only called by the explicit Save button in Misc. No automatic telemetry
@@ -345,8 +375,11 @@ public:
         if (!output)
             return false;
         output << "elapsed_ms,pose_age_ms,world_age_ms,bone_age_ms,pose_camera_age_ms,"
-                  "camera_gap_ms,camera_projection_shift_px,previous_present_call_ms,"
-                  "simulation_tick,fallback_bones,previous_present_dropped,pose_sequence\n";
+                  "camera_gap_ms,camera_projection_shift_px,present_call_ms,"
+                  "simulation_tick,fallback_bones,present_dropped,pose_sequence,"
+                  "frame_build_ms,pose_to_present_ms,world_to_present_ms,bone_to_present_ms,"
+                  "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
+                  "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -355,7 +388,14 @@ public:
                    << s.bone_age_ms << ',' << s.camera_age_ms << ',' << s.camera_gap_ms << ','
                    << s.camera_shift_px << ',' << s.present_call_ms << ','
                    << s.simulation_tick << ',' << (s.fallback_bones ? 1 : 0) << ','
-                   << (s.present_dropped ? 1 : 0) << ',' << s.pose_sequence << '\n';
+                   << (s.present_dropped ? 1 : 0) << ',' << s.pose_sequence << ','
+                   << s.frame_build_ms << ',' << s.pose_to_present_ms << ','
+                   << s.world_to_present_ms << ',' << s.bone_to_present_ms << ','
+                   << s.native_dxgi_present_ms << ',' << s.present_retry_wait_ms << ','
+                   << s.present_calls << ',' << s.present_retries << ','
+                   << s.draw_frames << ',' << s.repeated_pose_frames << ','
+                   << s.simulation_time << ',' << (s.simulation_valid ? 1 : 0) << ','
+                   << s.sim_unchanged_ms << '\n';
         }
         output.flush();
         return output.good();
