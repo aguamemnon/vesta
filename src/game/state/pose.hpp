@@ -2,6 +2,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <stop_token>
+#include <thread>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -46,6 +50,10 @@ struct player_pose_frame
 class player_pose_sampler
 {
 public:
+    ~player_pose_sampler();
+    player_pose_sampler() = default;
+    player_pose_sampler(const player_pose_sampler&) = delete;
+    player_pose_sampler& operator=(const player_pose_sampler&) = delete;
     void set_presentation_state(bool active, std::uint32_t sample_rate);
     [[nodiscard]] std::shared_ptr<const player_pose_frame> acquire_for_presentation();
     [[nodiscard]] std::shared_ptr<const player_pose_frame> latest() const;
@@ -60,12 +68,19 @@ private:
     };
 
     void sample_once();
+    void worker_loop(std::stop_token stop);
+    void reset_worker_state();
 
     std::atomic<std::uint64_t> m_presentation{};
     detail::pose_identity m_last_identity{};
     std::shared_ptr<const std::string> m_last_level{};
     foundation::snapshot_pool<player_pose_frame> m_frames{};
-    std::uint32_t m_rate{240};
+    // Only the worker samples or touches the pose cache / snapshot pool.
+    // Render thread sends rate/activity updates and only reads m_latest.
+    std::atomic<std::uint32_t> m_rate{165};
+    std::jthread m_worker{};
+    std::mutex m_wake_mutex{};
+    std::condition_variable m_wake{};
     detail::pose_sample_schedule m_schedule{};
     std::atomic<std::uint64_t> m_sequence{};
     std::atomic<std::shared_ptr<const player_pose_frame>> m_latest{};
