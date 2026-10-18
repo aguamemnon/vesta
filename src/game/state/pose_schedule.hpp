@@ -24,6 +24,8 @@ public:
             std::min(m_period / 16, std::chrono::duration_cast<clock::duration>(std::chrono::microseconds(250)));
         return !m_rate || now + tolerance >= m_next;
     }
+    [[nodiscard]] clock::time_point next_due() const noexcept { return m_next; }
+
     void sampled(clock::time_point finished) noexcept
     {
         m_next += m_period;
