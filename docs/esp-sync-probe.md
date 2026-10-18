@@ -1,4 +1,4 @@
-# ESP Sync Probe — Vesta v1.2.10
+# ESP Sync Probe — Vesta v1.2.11
 
 This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appear behind an opponent when the observer strafes, even with a stationary bot.
 
@@ -50,6 +50,8 @@ known Present breakdown, i.e. from the previous frame.
 - `pose_to_present_ms`, `world_to_present_ms`, `bone_to_present_ms`: source capture age **when Present returned**, not when the image reached the physical display.
 - `draw_frames` / `repeated_pose_frames`: number of diagnostic draw frames and repeats of the same pose sequence during the 10Hz interval. A repeated pose isn't necessarily a failed bone read.
 - `performance_mode` / `gpu_effects` / `display_refresh_hz`: active display settings, so ON/OFF captures cannot be mislabelled.
+- `pose_target_hz`: configured asynchronous pose reader target (165 Hz when the display is correctly detected at 165 Hz and no lower explicit FPS limit was chosen).
+- `gpu_vendor_id`: PCI vendor ID of the **actual DX11 rendering adapter** (e.g. 4318/NVIDIA, 4098/AMD). The overlay uses the same DX11 renderer; this does **not** claim a proprietary CUDA/ROCm rendering path.
 - `fallback_bones`: whether this presentation used cached bones after a failed read.
 - `pose_sequence`: pose frame generation, useful to spot repeated presentation of the same data.
 - `elapsed_ms`: relative capture time.
@@ -58,7 +60,7 @@ The CSV is a fixed-memory **up to 10 samples/s** ring (up to 180 seconds). **It 
 
 ## What this test does and does not establish
 
-The world sampler nominally runs at 64 Hz. The rendering pose sampler runs at 60 Hz in Performance Mode and the DX11 overlay is capped at the lower of 90 Hz or monitor refresh. The code may reuse a bone set for up to 100 ms after a read failure. This tool timestamps the three acquisition stages independently.
+The world sampler nominally runs at 64 Hz. Starting in v1.2.11, the pose sampler runs on a **dedicated worker thread**, targeting the actual detected display refresh in Performance Mode (165 Hz on a correctly configured 165 Hz monitor). The DX11 overlay independently targets the same monitor refresh rather than the former 90 Hz cap. These are requested cadences, **not guaranteed delivered frames or fresh game-world snapshots**. The worker may reuse a bone set for up to 100 ms after a failed read; the renderer can also reuse a pose if the worker has not completed the next one. This tool timestamps the three acquisition stages independently.
 
 The latest camera projection and captured-pose camera projection help detect **inconsistent camera/pose sampling**; they are not a frame-perfect oracle for the CS2 renderer. Measuring absolute alignment to CS2 would require video-frame comparison or instrumentation unavailable in this passive overlay.
 
