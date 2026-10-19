@@ -1,4 +1,4 @@
-# ESP Sync Probe — Vesta v1.2.13
+# ESP Sync Probe — Vesta v1.2.14
 
 This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appear behind an opponent when the observer strafes, even with a stationary bot.
 
@@ -32,7 +32,7 @@ reported ages therefore use the completion timestamp of that same frame, not the
 timestamp of the next frame's drawing pass. The display panel still shows the latest
 known Present breakdown, i.e. from the previous frame.
 
-- `pose_age_ms`: age of the pose frame when the DXGI call returned, not server or display latency.
+- `pose_age_ms`: age of the latest published immutable pose frame when DXGI returned, not server or display latency (measured from publication/completion time starting v1.2.14).
 - `world_age_ms`: age of the player read pass at the end of that Present attempt.
 - `bone_age_ms`: age of this bone set at the end of that Present attempt; grows through fallback reuse.
 - `pose_camera_age_ms`: age of the pose-frame camera at the end of that Present attempt.
@@ -42,6 +42,7 @@ known Present breakdown, i.e. from the previous frame.
 - `camera_translation_units` (v1.2.12+): distance between their camera origins in game units (only this scalar is saved, never positions).
 - `camera_prediction_shift_px` (v1.2.13+): pixel displacement between raw and bounded compensated projections of the same point; 0 when prediction is bypassed.
 - `camera_prediction_applied` (v1.2.13+): 1 if the compensated green marker was valid for the sampled point, else 0.
+- `pose_acquisition_ms` (v1.2.14+): time between starting the pose worker sampling pass and completing its immutable frame. This is acquisition time, not DXGI/compositor latency.
 - `present_call_ms`: time for the **current** `present_frame` operation (including retries, but not later GPU display time).
 - `present_dropped`: whether this present attempt was dropped.
 - `simulation_tick`: game tick value from the sampled player; negative values, such as -1 in the three previous captures, are invalid.
