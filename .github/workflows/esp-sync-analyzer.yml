@@ -1,0 +1,28 @@
+name: ESP Sync offline analyzer tests
+
+on:
+  push:
+    branches:
+      - feature/anti-aim-analyzer
+    paths:
+      - tools/analyze_esp_sync.py
+      - tools/tests/test_analyze_esp_sync.py
+      - .github/workflows/esp-sync-analyzer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    name: Passive CSV analyzer unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Run synthetic timing tests
+        run: python -m unittest discover -s tools/tests -p 'test_analyze_esp_sync.py' -v
+      - name: Check analyzer Python syntax
+        run: python -m py_compile tools/analyze_esp_sync.py
