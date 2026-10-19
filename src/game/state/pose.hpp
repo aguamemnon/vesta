@@ -40,6 +40,8 @@ struct player_pose_frame
     std::uint64_t sequence{};
     detail::pose_identity identity{};
     std::shared_ptr<const std::string> level{};
+    // Acquisition begins here, but timestamp marks the immutable frame being published.
+    std::chrono::steady_clock::time_point capture_started_at{};
     std::chrono::steady_clock::time_point timestamp{};
     std::shared_ptr<const std::vector<player_snapshot>> world{};
     presentation_camera_sample camera{};
