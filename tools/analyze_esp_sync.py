@@ -16,6 +16,7 @@ FIELDS = (
     "native_dxgi_present_ms", "present_call_ms", "pacing_wait_ms",
     "pose_to_present_ms", "sim_unchanged_ms",
     "camera_rotation_deg", "camera_translation_units",
+    "camera_prediction_shift_px",
 )
 SKIP_NEGATIVE = {"sim_unchanged_ms", "camera_rotation_deg", "camera_translation_units",
                  "camera_gap_ms"}
@@ -84,6 +85,11 @@ def summarize(rows: list[dict[str, str]]) -> dict:
     drawn = sum(number(row, "draw_frames") or 0 for row in rows)
     repeated = sum(number(row, "repeated_pose_frames") or 0 for row in rows)
     result["repeated_pose_fraction_of_draw_frames"] = repeated / drawn if drawn else None
+    prediction = [number(row, "camera_prediction_applied") for row in rows]
+    measured = [p for p in prediction if p is not None]
+    result["camera_prediction_applied_fraction"] = (
+        sum(p != 0 for p in measured) / len(measured) if measured else None
+    )
     result["draw_frames"] = drawn
 
     # Ages in the export are recorded *after* Present returned. Subtracting
