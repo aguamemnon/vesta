@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <foundation/scope_exit.hpp>
 #include <foundation/frame_schedule.hpp>
+#include <foundation/math/camera_prediction.hpp>
 #include <ui/overlay/present_policy.hpp>
 #include <diagnostics/rate_gate.hpp>
 #include <array>
@@ -204,6 +205,8 @@ private:
     std::uint32_t m_ct_preview_height{};
     std::uint32_t m_render_width{};
     std::uint32_t m_render_height{};
+    foundation::camera_projection_predictor m_camera_predictor{};
+    float m_recent_present_ms{};
     float m_ui_dpi_scale{1.0f};
     std::uint32_t m_ui_reference_width{};
     std::uint32_t m_ui_reference_height{};
