@@ -2279,7 +2279,7 @@ void renderer::render_world_effects(ID3D11RenderTargetView* backbuffer_rtv, cons
     if (!ensure_world_geometry() || !ensure_depth_buffer(target_width, target_height))
         return;
 
-    const auto view_projection = game::camera().matrix();
+    const auto view_projection = game::camera().render_matrix();
     update_view_projection(view_projection, eye);
     m_context->ClearDepthStencilView(m_dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
@@ -2802,7 +2802,7 @@ void renderer::render_frame(ID3D11RenderTargetView* backbuffer_rtv, const UINT t
         return;
     }
 
-    const auto view_projection = game::camera().matrix();
+    const auto view_projection = game::camera().render_matrix();
     const auto eye = game::camera().origin();
     const auto projectiles = game::world().projectiles();
     const auto smoke_occluded = [&](const game::player_snapshot* player)
