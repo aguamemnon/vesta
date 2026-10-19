@@ -92,10 +92,10 @@ class probe
         bool fallback_bones{};
         float camera_gap_ms{-1.0f};
         float camera_shift_px{};
-        float visual_shift_px{};
-        bool visual_prediction_applied{};
         float camera_rotation_deg{};
         float camera_translation_units{};
+        float visual_shift_px{};
+        bool visual_prediction_applied{};
     };
 
     static constexpr std::size_t k_capacity = 1800; // 3 minutes @ 10 samples/s
