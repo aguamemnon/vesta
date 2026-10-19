@@ -16,7 +16,7 @@ FIELDS = (
     "native_dxgi_present_ms", "present_call_ms", "pacing_wait_ms",
     "pose_to_present_ms", "sim_unchanged_ms",
     "camera_rotation_deg", "camera_translation_units",
-    "camera_prediction_shift_px",
+    "camera_prediction_shift_px", "pose_acquisition_ms",
 )
 SKIP_NEGATIVE = {"sim_unchanged_ms", "camera_rotation_deg", "camera_translation_units",
                  "camera_gap_ms"}
