@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: ESP Sync Probe v1.2.12
+## Fork preview: ESP Sync Probe v1.2.13
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
@@ -46,6 +46,18 @@ and frame pacing. It counts repeated pose frames, records valid/invalid
 simulation timestamps without fabricating missing ticks, and stamps the
 actual Performance Mode / GPU Effects state of each recording. This is a
 diagnostic-only update; normal ESP and combat behavior are unchanged.
+
+**v1.2.13:** Experimental visual-camera lookahead now applies a short, bounded
+extrapolation of the last two camera matrices to the ESP and chams render
+projection only. The lookahead follows a smoothed fraction of the previous
+DXGI Present duration and cannot exceed 4 ms, 1.5 degrees or 3 game units
+per frame. It automatically bypasses FOV changes, camera discontinuities,
+and sharp reversals. The real shared camera state, game input, aim, world
+sampling cadence and 165 Hz refresh policy are unchanged. The Sync Probe
+retains its *raw* camera and pose comparison and adds a green compensated
+marker and two CSV columns for validation. This experimental compensation
+may not match CS2's independent render timing on every system; check
+alignment in-game.
 
 **v1.2.12:** The passive ESP Sync Probe adds camera rotation and translation
 scalars to the end of its CSV. `tools/analyze_esp_sync.py` can now compare
