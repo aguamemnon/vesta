@@ -1,4 +1,11 @@
-# Overlay renderer: low-latency performance mode (v1.2.8)
+# Overlay renderer: low-latency performance mode (historical v1.2.8 analysis)
+
+> **Current v1.2.14:** Performance Mode follows the actual detected display refresh
+> (165 Hz on a 165 Hz monitor) instead of the original 90 Hz/60 Hz limits described
+> below. The bone worker is now asynchronous and the world reader retains its
+> independent 64 Hz budget. See [ESP Sync Probe](esp-sync-probe.md) and
+> [offline analysis](esp-sync-offline-analysis.md). Old benchmarking steps
+> mentioning a 90/60 Hz cap are historical, not active defaults.
 
 ## The performance bottlenecks found during the rendering review
 
