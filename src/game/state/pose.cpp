@@ -158,6 +158,7 @@ void player_pose_sampler::sample_once()
     frame->identity = identity;
     frame->level = level;
     frame->sequence = m_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
+    frame->capture_started_at = now;
     frame->timestamp = now;
     frame->world = game::world().players();
     if (!frame->world)
@@ -219,6 +220,10 @@ void player_pose_sampler::sample_once()
         !detail::pose_frame_usable(identity, pose_context(*final_local, final_level, final_presentation), now,
                                    std::chrono::steady_clock::now()))
         return;
+    // Age the published immutable frame from the end of acquisition. Earlier
+    // timestamps already describe the world snapshot and individual bone
+    // reads; this avoids treating time spent in the worker as render latency.
+    frame->timestamp = std::chrono::steady_clock::now();
     m_latest.store(std::move(frame), std::memory_order_release);
 }
 
