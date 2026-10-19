@@ -54,6 +54,13 @@ and the accepted prediction fraction. The original
 so earlier samples remain comparable; the new columns quantify correction
 amount, not absolute alignment to the game's image.
 
+The v1.2.14 capture adds `pose_acquisition_ms` to explicitly measure the
+pose worker pass duration. The frame freshness timestamp was moved to the
+end of acquisition, so `pose_age_ms` on new captures is no longer inflated
+by the worker's own read duration. `world_age_ms` continues to reflect
+actual world sampling time. Avoid comparing absolute pose ages across
+v1.2.13 and v1.2.14 as if the semantics were unchanged.
+
 The exported `pose_age_ms` and `world_age_ms` are ages **after** the current DXGI Present attempt has returned. They should not be read as how old the snapshots were when rendering started.
 
 The analyzer includes `pose_age_before_present_est_ms` and `world_age_before_present_est_ms`: the respective captured ages minus that sample's `present_call_ms`. This is an **estimate** at the start of the Present call, not a precise acquisition age at ESP projection time or a measurement of display/compositor latency.
