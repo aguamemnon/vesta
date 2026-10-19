@@ -1704,6 +1704,8 @@ bool overlay_t::attach_presentation()
 
 void overlay_t::detach_presentation() noexcept
 {
+    m_camera_predictor.reset();
+    m_recent_present_ms = 0.0f;
     m_combat_input_ready.store(false, std::memory_order_release);
     game::render_poses().set_presentation_state(false, m_window_tracker.refresh_rate());
     if (!m_presentation_attached && !m_composition_target)
