@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: ESP Sync Probe v1.2.13
+## Fork preview: ESP Sync Probe v1.2.14
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
@@ -47,9 +47,22 @@ simulation timestamps without fabricating missing ticks, and stamps the
 actual Performance Mode / GPU Effects state of each recording. This is a
 diagnostic-only update; normal ESP and combat behavior are unchanged.
 
+**v1.2.14:** The camera lookahead now advances a single rigid orientation
+and eye translation, preserving perspective row geometry instead of
+independently extrapolating 16 matrix elements. It rejects invalid,
+incoherent or discontinuous camera samples and maintains the same 4 ms /
+1.5 degree / 3 unit budget. **Misc → General → Engine → Visual Camera
+Prediction** enables/disables it independently of the 165 Hz performance
+settings (enabled by default, persisted per config). Pose worker frames now
+use their **publication time** for freshness, while the probe exports
+`pose_acquisition_ms` separately to distinguish read time from Present time.
+Windows Release CI compiles and runs an independent C++ camera regression
+target before packaging. These are experimental visual changes, not a
+verified improvement in CS2's actual end-to-end input-to-display latency.
+
 **v1.2.13:** Experimental visual-camera lookahead now applies a short, bounded
 extrapolation of the last two camera matrices to the ESP and chams render
-projection only. The lookahead follows a smoothed fraction of the previous
+projection only (superseded by rigid-camera extrapolation in v1.2.14). The lookahead follows a smoothed fraction of the previous
 DXGI Present duration and cannot exceed 4 ms, 1.5 degrees or 3 game units
 per frame. It automatically bypasses FOV changes, camera discontinuities,
 and sharp reversals. The real shared camera state, game input, aim, world
