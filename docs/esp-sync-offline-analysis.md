@@ -46,6 +46,14 @@ The analyzer continues to accept old CSV files without motion columns, provided 
 
 ## Separating presentation time from snapshot freshness
 
+Starting in v1.2.13, the CSV also contains `camera_prediction_shift_px`
+(the displacement between raw and compensated screen projection) and
+`camera_prediction_applied` (1 or 0). The analyzer reports their distributions
+and the accepted prediction fraction. The original
+`camera_projection_shift_px` still compares **raw** and pose-captured matrices,
+so earlier samples remain comparable; the new columns quantify correction
+amount, not absolute alignment to the game's image.
+
 The exported `pose_age_ms` and `world_age_ms` are ages **after** the current DXGI Present attempt has returned. They should not be read as how old the snapshots were when rendering started.
 
 The analyzer includes `pose_age_before_present_est_ms` and `world_age_before_present_est_ms`: the respective captured ages minus that sample's `present_call_ms`. This is an **estimate** at the start of the Present call, not a precise acquisition age at ESP projection time or a measurement of display/compositor latency.
