@@ -528,14 +528,22 @@ void overlay_t::draw_world(render::draw::draw_list& draw_list)
         // Extrapolate at most a few ms into the next presentation. This only
         // overrides render-frame projection; the real shared camera and all
         // combat/input calculations remain unmodified.
-        const foundation::camera_prediction_sample camera_input{
-            camera.matrix, camera.origin, camera.angles, camera.fov};
-        const auto lead_ms = m_recent_present_ms > 0.0f
-                                 ? std::clamp(m_recent_present_ms * 0.5f, 1.5f, 4.0f)
-                                 : 2.5f;
-        visual_prediction = m_camera_predictor.observe(camera_input, current_camera_at, lead_ms);
-        if (visual_prediction)
-            game::camera().set_render_projection(*visual_prediction);
+        if (config::general_settings.visual_camera_prediction)
+        {
+            const foundation::camera_prediction_sample camera_input{
+                camera.matrix, camera.origin, camera.angles, camera.fov};
+            const auto lead_ms = m_recent_present_ms > 0.0f
+                                     ? std::clamp(m_recent_present_ms * 0.5f, 1.5f, 4.0f)
+                                     : 2.5f;
+            visual_prediction = m_camera_predictor.observe(camera_input, current_camera_at, lead_ms);
+            if (visual_prediction)
+                game::camera().set_render_projection(*visual_prediction);
+        }
+        else
+        {
+            // An opt-out never alters the refresh or the real game camera.
+            m_camera_predictor.reset();
+        }
     }
     else
     {
