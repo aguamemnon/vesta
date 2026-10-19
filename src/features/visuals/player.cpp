@@ -430,7 +430,7 @@ void player_t::paint_offscreen_markers(render::draw::draw_list& draw_list,
     const auto radius = std::clamp(cfg.radius, 20.0f, max_radius);
 
     // Same view-projection matrix game::camera_state::project() uses, read once.
-    const auto m = game::camera().matrix();
+    const auto m = game::camera().render_matrix();
     if (m[3][3] == 0.0f)
     {
         return;
