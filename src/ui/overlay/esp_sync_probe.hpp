@@ -46,6 +46,9 @@ class probe
         float camera_age_ms{};
         float camera_gap_ms{};
         float camera_shift_px{};
+        // Relative camera movement between pose capture and live projection.
+        float camera_rotation_deg{};
+        float camera_translation_units{};
         float present_call_ms{};
         int simulation_tick{};
         bool fallback_bones{};
@@ -87,6 +90,8 @@ class probe
         bool fallback_bones{};
         float camera_gap_ms{-1.0f};
         float camera_shift_px{};
+        float camera_rotation_deg{};
+        float camera_translation_units{};
     };
 
     static constexpr std::size_t k_capacity = 1800; // 3 minutes @ 10 samples/s
@@ -195,6 +200,8 @@ public:
         r.camera_age_ms = age_ms(now, m_pending.camera_at);
         r.camera_gap_ms = m_pending.camera_gap_ms;
         r.camera_shift_px = m_pending.camera_shift_px;
+        r.camera_rotation_deg = m_pending.camera_rotation_deg;
+        r.camera_translation_units = m_pending.camera_translation_units;
         r.present_call_ms = metrics.total_ms;
         r.simulation_tick = m_pending.simulation_tick;
         r.fallback_bones = m_pending.fallback_bones;
@@ -309,6 +316,18 @@ public:
         const float bone_age = age_ms(now, selected->bone_captured_at);
         const float camera_age = age_ms(now, frame->camera_captured_at);
         const float gap = age_ms(live_camera_at, frame->camera_captured_at);
+        // The two camera samples already exist for the probe: no additional memory reads.
+        // Wrap Euler angle differences to avoid false 359-degree jumps at +/-180 or 360.
+        const auto angular_difference = [](float current, float previous) noexcept
+        { return std::remainder(current - previous, 360.0f); };
+        const float rotation_deg = std::hypot(
+            angular_difference(live_camera->angles.x, frame->camera.angles.x),
+            angular_difference(live_camera->angles.y, frame->camera.angles.y),
+            angular_difference(live_camera->angles.z, frame->camera.angles.z));
+        const float translation_units = std::hypot(
+            live_camera->origin.x - frame->camera.origin.x,
+            live_camera->origin.y - frame->camera.origin.y,
+            live_camera->origin.z - frame->camera.origin.z);
 
         canvas->AddLine(live_position, pose_position, IM_COL32(242, 183, 102, 175), 1.5f);
         canvas->AddCircle(live_position, 6.0f, IM_COL32(78, 215, 236, 245), 20, 2.0f);
@@ -372,7 +391,9 @@ public:
             .simulation_valid = sim_valid,
             .fallback_bones = selected->reused_after_read_failure,
             .camera_gap_ms = gap,
-            .camera_shift_px = shift
+            .camera_shift_px = shift,
+            .camera_rotation_deg = std::isfinite(rotation_deg) ? rotation_deg : -1.0f,
+            .camera_translation_units = std::isfinite(translation_units) ? translation_units : -1.0f
         };
     }
 
@@ -399,7 +420,7 @@ public:
                   "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
                   "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms,"
                   "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz,"
-                  "pose_target_hz,gpu_vendor_id\n";
+                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -418,7 +439,8 @@ public:
                    << s.sim_unchanged_ms << ',' << s.pacing_wait_ms << ','
                    << (s.performance_mode ? 1 : 0) << ',' << (s.gpu_effects ? 1 : 0) << ','
                    << s.display_refresh_hz << ','
-                   << s.pose_target_hz << ',' << s.gpu_vendor_id << '\n';
+                   << s.pose_target_hz << ',' << s.gpu_vendor_id << ','
+                   << s.camera_rotation_deg << ',' << s.camera_translation_units << '\n';
         }
         output.flush();
         return output.good();
