@@ -18,13 +18,15 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: ESP Sync Probe v1.2.11
+## Fork preview: ESP Sync Probe v1.2.12
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
 
-- The overlay runs at the lower of **90 Hz**, your display refresh, and
-  any lower user FPS limit; remote skeleton/pose sampling remains at **60 Hz**.
+- In v1.2.11+ Performance Mode targets the **detected display refresh**
+  (165 Hz on a 165 Hz screen), respecting a lower explicit user limit. The
+  asynchronous pose worker targets the same display rate; world snapshots
+  remain bounded by their independent sampler cadence.
 - 2D bloom CPU collection and the extra postprocessing pass are disabled in
   Performance Mode. Turn it off to compare original behavior.
 - v1.2.8 additionally **coalesces settings writes** outside the menu to avoid
@@ -44,6 +46,12 @@ and frame pacing. It counts repeated pose frames, records valid/invalid
 simulation timestamps without fabricating missing ticks, and stamps the
 actual Performance Mode / GPU Effects state of each recording. This is a
 diagnostic-only update; normal ESP and combat behavior are unchanged.
+
+**v1.2.12:** The passive ESP Sync Probe adds camera rotation and translation
+scalars to the end of its CSV. `tools/analyze_esp_sync.py` can now compare
+projection discrepancy against observed camera movement without a video
+capture; see [offline analysis](docs/esp-sync-offline-analysis.md). No camera,
+ESP, aim, DX11 present or refresh behavior is changed by these measurements.
 
 **v1.2.11:** Performance Mode now targets the display refresh (165 Hz on
 a 165 Hz monitor) instead of fixed 90/60 Hz caps. Player bone sampling was
