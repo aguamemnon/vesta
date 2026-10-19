@@ -521,10 +521,28 @@ void overlay_t::draw_world(render::draw::draw_list& draw_list)
     game::presentation_camera_sample camera{};
     const bool current_camera_valid = game::camera().sample_presentation(camera);
     const auto current_camera_at = std::chrono::steady_clock::now();
+    std::optional<foundation::matrix4> visual_prediction{};
     if (current_camera_valid)
+    {
         game::camera().begin_presentation_frame(camera, m_render_width, m_render_height);
-    else if (pose_frame)
-        game::camera().begin_presentation_frame(pose_frame->camera, m_render_width, m_render_height);
+        // Extrapolate at most a few ms into the next presentation. This only
+        // overrides render-frame projection; the real shared camera and all
+        // combat/input calculations remain unmodified.
+        const foundation::camera_prediction_sample camera_input{
+            camera.matrix, camera.origin, camera.angles, camera.fov};
+        const auto lead_ms = m_recent_present_ms > 0.0f
+                                 ? std::clamp(m_recent_present_ms * 0.5f, 1.5f, 4.0f)
+                                 : 2.5f;
+        visual_prediction = m_camera_predictor.observe(camera_input, current_camera_at, lead_ms);
+        if (visual_prediction)
+            game::camera().set_render_projection(*visual_prediction);
+    }
+    else
+    {
+        m_camera_predictor.reset();
+        if (pose_frame)
+            game::camera().begin_presentation_frame(pose_frame->camera, m_render_width, m_render_height);
+    }
 
     // Performance zones are compile-time no-ops in production Release.
     if (m_use_gpu && config::general_settings.use_gpu)
@@ -555,7 +573,8 @@ void overlay_t::draw_world(render::draw::draw_list& draw_list)
     // No aim, target selection, or normal ESP geometry is changed.
     if (config::general_settings.esp_sync_probe)
         ui::esp_sync::bound_probe().draw(pose_frame, current_camera_valid ? &camera : nullptr,
-                                        m_render_width, m_render_height, current_camera_at);
+                                        m_render_width, m_render_height, current_camera_at,
+                                        visual_prediction ? &*visual_prediction : nullptr);
 }
 
 // Records the whole ImGui frame: world visuals (hidden while spectated, when the user asked for it), scripts, HUD
@@ -844,7 +863,20 @@ bool overlay_t::run()
                 continue;
         }
         ui::esp_sync::present_metrics present_timing{};
+        const auto present_begin = std::chrono::steady_clock::now();
         const auto outcome = present_frame(present_recovery, sync_probe_enabled ? &present_timing : nullptr);
+        if (outcome == present_outcome::presented)
+        {
+            // Smoothed previous Present duration is only a bounded visual
+            // lookahead heuristic, never a claim about the display scanout.
+            const auto call_ms = std::chrono::duration<float, std::milli>(
+                std::chrono::steady_clock::now() - present_begin).count();
+            m_recent_present_ms = std::clamp(
+                m_recent_present_ms > 0.0f
+                    ? m_recent_present_ms * 0.87f + call_ms * 0.13f
+                    : call_ms,
+                0.0f, 12.0f);
+        }
         if (sync_probe_enabled)
             ui::esp_sync::bound_probe().on_present(
                 present_timing, frame_build_ms, pacing_wait_ms,
