@@ -27,7 +27,9 @@ jobs:
       - name: Build
         run: cmake --build --preset release --parallel
       - name: Validate camera prediction before packaging
-        run: ctest --test-dir build/release -C Release --output-on-failure -R '^vesta_camera_prediction        shell: pwsh
+        run: ctest --test-dir build/release -C Release --output-on-failure -R '^vesta_camera_prediction$'
+      - name: Check executable exists
+        shell: pwsh
         run: |
           if (-not (Test-Path -LiteralPath 'build/bin/vesta.exe')) {
             throw 'Expected build/bin/vesta.exe missing'
