@@ -1,4 +1,4 @@
-# ESP Sync Probe — Vesta v1.2.11
+# ESP Sync Probe — Vesta v1.2.12
 
 This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appear behind an opponent when the observer strafes, even with a stationary bot.
 
@@ -10,7 +10,7 @@ This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appe
 4. With a **stationary bot**, stand still for a few seconds, then strafe quickly left-right for ~20 seconds.
 5. Repeat while the bot moves and finally while you also move. Avoid changing CS2 graphics/settings between stages.
 6. Open Misc again and click **Save ESP Sync CSV**, then **Logs**. Send the file
-   `%TEMP%\vesta\logs\vesta-esp-sync.csv` alongside a screenshot or short recording of the markers.
+   `%TEMP%\vesta\logs\vesta-esp-sync.csv`. A screenshot or recording is **not required**.
 7. **Clear Sync Samples** starts a fresh capture for another test.
 
 Nothing is transmitted over the network. The file contains only numerical timing / projection measurements, no player names, Steam IDs, physical addresses, or game world coordinates.
@@ -37,6 +37,8 @@ known Present breakdown, i.e. from the previous frame.
 - `pose_camera_age_ms`: age of the pose-frame camera at the end of that Present attempt.
 - `camera_gap_ms`: time between the pose camera reading and the later camera reading at render time.
 - `camera_projection_shift_px`: distance between the two 2D projections of the **same** bone.
+- `camera_rotation_deg` (v1.2.12+): shortest-angle orientation difference between the two camera snapshots, in degrees.
+- `camera_translation_units` (v1.2.12+): distance between their camera origins in game units (only this scalar is saved, never positions).
 - `present_call_ms`: time for the **current** `present_frame` operation (including retries, but not later GPU display time).
 - `present_dropped`: whether this present attempt was dropped.
 - `simulation_tick`: game tick value from the sampled player; negative values, such as -1 in the three previous captures, are invalid.
@@ -77,4 +79,6 @@ the same file. A few hundred rows is enough to compare the relative proportions 
 `repeated_pose_frames` and `pose_to_present_ms`. These metrics cannot
 directly measure the image delay in CS2's separate renderer or the display/compositor.
 
-The test does not modify the AIM, RCS, Triggerbot, game input, visual ESP policy, refresh cadence, or DX11 Present mode. Turn the probe OFF when done.
+The test does not modify the AIM, RCS, Triggerbot, game input, visual ESP policy, refresh cadence, or DX11 Present mode.
+
+The v1.2.12 motion scalars are computed from the same two camera snapshots already used by the probe: no extra remote reads. The new analyzer command `python tools/analyze_esp_sync.py <csv> --motion-split` splits samples by *observed* camera movement without screenshots. No observed camera delta does not prove that the user was stationary: CS2 camera snapshots and the 10 Hz recording cadence may miss intermediate movement. See [offline analysis](esp-sync-offline-analysis.md). Turn the probe OFF when done.
