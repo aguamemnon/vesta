@@ -46,6 +46,8 @@ class probe
         float camera_age_ms{};
         float camera_gap_ms{};
         float camera_shift_px{};
+        float visual_shift_px{};
+        bool visual_prediction_applied{};
         // Relative camera movement between pose capture and live projection.
         float camera_rotation_deg{};
         float camera_translation_units{};
@@ -90,6 +92,8 @@ class probe
         bool fallback_bones{};
         float camera_gap_ms{-1.0f};
         float camera_shift_px{};
+        float visual_shift_px{};
+        bool visual_prediction_applied{};
         float camera_rotation_deg{};
         float camera_translation_units{};
     };
@@ -200,6 +204,8 @@ public:
         r.camera_age_ms = age_ms(now, m_pending.camera_at);
         r.camera_gap_ms = m_pending.camera_gap_ms;
         r.camera_shift_px = m_pending.camera_shift_px;
+        r.visual_shift_px = m_pending.visual_shift_px;
+        r.visual_prediction_applied = m_pending.visual_prediction_applied;
         r.camera_rotation_deg = m_pending.camera_rotation_deg;
         r.camera_translation_units = m_pending.camera_translation_units;
         r.present_call_ms = metrics.total_ms;
@@ -236,7 +242,7 @@ public:
     // enemy head is projected in each view; the exported 10 Hz ring is bounded.
     void draw(const std::shared_ptr<const game::player_pose_frame>& frame,
               const game::presentation_camera_sample* live_camera, std::uint32_t width, std::uint32_t height,
-              clock::time_point live_camera_at)
+              clock::time_point live_camera_at, const foundation::matrix4* visual_matrix = nullptr)
     {
         if (!width || !height)
             return;
@@ -311,6 +317,19 @@ public:
         }
 
         const float shift = std::hypot(live_position.x - pose_position.x, live_position.y - pose_position.y);
+        float visual_shift_px{};
+        bool visual_applied{};
+        if (visual_matrix)
+        {
+            const auto head = selected->bones.get_position(7);
+            if (const auto corrected = project(*visual_matrix, head, w, h))
+            {
+                visual_shift_px = std::hypot(corrected->x - live_position.x,
+                                              corrected->y - live_position.y);
+                visual_applied = true;
+                canvas->AddCircleFilled(*corrected, 3.0f, IM_COL32(125, 245, 153, 255));
+            }
+        }
         const float pose_age = age_ms(now, frame->timestamp);
         const float world_age = age_ms(now, selected_player->sampled_at);
         const float bone_age = age_ms(now, selected->bone_captured_at);
@@ -355,8 +374,10 @@ public:
         std::snprintf(line, sizeof(line), "Pose->Present %.1fms | Build %.1fms | Pace %.1fms",
                       m_last_pose_to_present_ms, m_last_build_ms, m_last_pacing_wait_ms);
         print(130.0f, IM_COL32(210, 219, 229, 255), line);
-        print(151.0f, IM_COL32(78, 215, 236, 245), "O live camera");
-        print(165.0f, IM_COL32(255, 175, 85, 255), "X pose camera, same bone");
+        print(151.0f, IM_COL32(78, 215, 236, 245), "O raw camera | X pose camera");
+        std::snprintf(line, sizeof(line), "+ predicted %s | correction %.1fpx",
+                      visual_applied ? "ON" : "bypass", visual_shift_px);
+        print(165.0f, IM_COL32(125, 245, 153, 255), line);
 
         // The target snapshot is staged for on_present(), so all measurements
         // in each CSV row are from a single render-to-present attempt.
@@ -393,7 +414,9 @@ public:
             .camera_gap_ms = gap,
             .camera_shift_px = shift,
             .camera_rotation_deg = std::isfinite(rotation_deg) ? rotation_deg : -1.0f,
-            .camera_translation_units = std::isfinite(translation_units) ? translation_units : -1.0f
+            .camera_translation_units = std::isfinite(translation_units) ? translation_units : -1.0f,
+            .visual_shift_px = visual_shift_px,
+            .visual_prediction_applied = visual_applied
         };
     }
 
@@ -420,7 +443,7 @@ public:
                   "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
                   "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms,"
                   "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz,"
-                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units\n";
+                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units,camera_prediction_shift_px,camera_prediction_applied\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -440,7 +463,8 @@ public:
                    << (s.performance_mode ? 1 : 0) << ',' << (s.gpu_effects ? 1 : 0) << ','
                    << s.display_refresh_hz << ','
                    << s.pose_target_hz << ',' << s.gpu_vendor_id << ','
-                   << s.camera_rotation_deg << ',' << s.camera_translation_units << '\n';
+                   << s.camera_rotation_deg << ',' << s.camera_translation_units << ','
+                   << s.visual_shift_px << ',' << (s.visual_prediction_applied ? 1 : 0) << '\n';
         }
         output.flush();
         return output.good();
