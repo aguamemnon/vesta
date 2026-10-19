@@ -1,4 +1,4 @@
-# ESP Sync Probe — Vesta v1.2.12
+# ESP Sync Probe — Vesta v1.2.13
 
 This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appear behind an opponent when the observer strafes, even with a stationary bot.
 
@@ -17,8 +17,9 @@ Nothing is transmitted over the network. The file contains only numerical timing
 
 ## On-screen marker legend
 
-- **Cyan circle (O):** one enemy head bone projected by the latest successfully sampled camera matrix, as the normal ESP does.
+- **Cyan circle (O):** one enemy head bone projected by the latest successfully sampled **raw** camera matrix, before the v1.2.13 compensation.
 - **Orange cross (X):** **the same exact head bone** projected by the camera matrix captured with the player pose frame.
+- **Green dot (+):** the v1.2.13 compensated *visual* projection when prediction is accepted. Missing green dot means prediction was bypassed that frame.
 - **Connecting line:** purely the on-screen **camera/projection discrepancy** for an identical 3D point, measured in pixels.
 - The sampled target is the on-screen enemy pose closest to screen center. The probe does not switch targets, move the mouse, or press fire.
 
@@ -39,6 +40,8 @@ known Present breakdown, i.e. from the previous frame.
 - `camera_projection_shift_px`: distance between the two 2D projections of the **same** bone.
 - `camera_rotation_deg` (v1.2.12+): shortest-angle orientation difference between the two camera snapshots, in degrees.
 - `camera_translation_units` (v1.2.12+): distance between their camera origins in game units (only this scalar is saved, never positions).
+- `camera_prediction_shift_px` (v1.2.13+): pixel displacement between raw and bounded compensated projections of the same point; 0 when prediction is bypassed.
+- `camera_prediction_applied` (v1.2.13+): 1 if the compensated green marker was valid for the sampled point, else 0.
 - `present_call_ms`: time for the **current** `present_frame` operation (including retries, but not later GPU display time).
 - `present_dropped`: whether this present attempt was dropped.
 - `simulation_tick`: game tick value from the sampled player; negative values, such as -1 in the three previous captures, are invalid.
@@ -79,6 +82,6 @@ the same file. A few hundred rows is enough to compare the relative proportions 
 `repeated_pose_frames` and `pose_to_present_ms`. These metrics cannot
 directly measure the image delay in CS2's separate renderer or the display/compositor.
 
-The test does not modify the AIM, RCS, Triggerbot, game input, visual ESP policy, refresh cadence, or DX11 Present mode.
+The probe itself remains passive and does not modify AIM, RCS, Triggerbot, game input, refresh cadence or DX11 Present mode. The independent v1.2.13 visual lookahead **does** change ESP/chams projection using a bounded predicted matrix, but does not publish it as the shared game camera.
 
 The v1.2.12 motion scalars are computed from the same two camera snapshots already used by the probe: no extra remote reads. The new analyzer command `python tools/analyze_esp_sync.py <csv> --motion-split` splits samples by *observed* camera movement without screenshots. No observed camera delta does not prove that the user was stationary: CS2 camera snapshots and the 10 Hz recording cadence may miss intermediate movement. See [offline analysis](esp-sync-offline-analysis.md). Turn the probe OFF when done.
