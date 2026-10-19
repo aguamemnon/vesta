@@ -42,3 +42,21 @@ python tools/analyze_esp_sync.py "$env:TEMP\vesta\logs\vesta-esp-sync.csv" --mot
 Buckets are `no_change_observed`, `rotation_only_observed`, `translation_only_observed`, `both_observed`, and `invalid`. The default thresholds are 0.05 degrees and 0.10 game units, overridable using `--rotation-threshold` and `--translation-threshold`. A lack of measured change between snapshots does **not** prove the player was stationary: measurements can coincide within a game frame, and 10 Hz log rows can miss movements. Use these groups as comparative evidence only.
 
 The analyzer continues to accept old CSV files without motion columns, provided `--motion-split` is omitted. Avoid comparing runs made with different Performance Mode, GPU Effects or game settings as a controlled performance benchmark.
+
+
+## Separating presentation time from snapshot freshness
+
+The exported `pose_age_ms` and `world_age_ms` are ages **after** the current DXGI Present attempt has returned. They should not be read as how old the snapshots were when rendering started.
+
+The analyzer includes `pose_age_before_present_est_ms` and `world_age_before_present_est_ms`: the respective captured ages minus that sample's `present_call_ms`. This is an **estimate** at the start of the Present call, not a precise acquisition age at ESP projection time or a measurement of display/compositor latency.
+
+It also reports:
+
+- `pose_age_vs_present_call_r`: whether longer Present calls inflate the measured pose age.
+- `projection_shift_vs_present_call_r`: whether shift between two camera projections is associated with slower Present calls.
+- `present_call_over_refresh_budget_ratio`: proportion of sampled Present calls exceeding one monitor refresh interval (`1000/display_refresh_hz`). This compares *CPU call duration* against a budget, **not** actual rendered FPS.
+- `projection_shift_over_5px_ratio`: fraction of samples where two camera projections differ by more than 5 pixels.
+
+The CSV is sampled at most 10 Hz even if the overlay is targeting 165 Hz: these are indicative distributions and may miss brief stalls. Rotation/translation buckets reflect **between-snapshot changes**, not a movement classifier for the entire 100 ms between rows.
+
+For a valid Performance Mode A/B comparison, clear the probe before each run, retain the same graphics settings, and verify the `performance_mode` field has the intended value. Capture Performance Mode ON and OFF separately; the mode is not inferred from screen refresh rate.
