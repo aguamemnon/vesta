@@ -2002,6 +2002,7 @@ static void to_json(json& j, const general_profile& m)
              {"limit_fps", m.limit_fps},
              {"fps_limit", m.fps_limit},
              {"performance_mode", m.performance_mode},
+             {"visual_camera_prediction", m.visual_camera_prediction},
              {"esp_sync_probe", m.esp_sync_probe},
              {"use_gpu", m.use_gpu}};
 }
@@ -2047,6 +2048,7 @@ static void from_json(const json& j, general_profile& m)
     read_field(j, "limit_fps", m.limit_fps);
     read_field(j, "fps_limit", m.fps_limit);
     read_field(j, "performance_mode", m.performance_mode);
+    read_field(j, "visual_camera_prediction", m.visual_camera_prediction);
     read_field(j, "esp_sync_probe", m.esp_sync_probe);
     read_field(j, "use_gpu", m.use_gpu);
 }
