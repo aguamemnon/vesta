@@ -46,6 +46,9 @@ struct player_pose_frame
     std::shared_ptr<const std::vector<player_snapshot>> world{};
     presentation_camera_sample camera{};
     std::chrono::steady_clock::time_point camera_captured_at{};
+    // Visual-only counters for players skipped before reading stale poses.
+    std::uint32_t stale_world_players{};
+    std::uint32_t stale_fallback_bones{};
     std::vector<sampled_player_pose> players{};
 };
 
