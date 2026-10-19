@@ -6,6 +6,8 @@ on:
       - feature/anti-aim-analyzer
     paths:
       - tools/analyze_esp_sync.py
+      - src/foundation/math/camera_prediction.hpp
+      - tools/tests/camera_prediction_test.cpp
       - tools/tests/test_analyze_esp_sync.py
       - .github/workflows/esp-sync-analyzer.yml
   workflow_dispatch:
@@ -26,3 +28,13 @@ jobs:
         run: python -m unittest discover -s tools/tests -p 'test_analyze_esp_sync.py' -v
       - name: Check analyzer Python syntax
         run: python -m py_compile tools/analyze_esp_sync.py
+
+  camera-prediction:
+    name: Camera lookahead C++23 unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile pure prediction policy
+        run: g++ -std=c++23 -O2 -Wall -Wextra -Werror -Isrc tools/tests/camera_prediction_test.cpp -o /tmp/vesta-camera-prediction-test
+      - name: Check clamps and fallbacks
+        run: /tmp/vesta-camera-prediction-test
