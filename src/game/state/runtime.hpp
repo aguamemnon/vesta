@@ -122,6 +122,10 @@ public:
     void bind(const memory_services& services, const address_catalog& addresses) noexcept;
     [[nodiscard]] bool sample_presentation(presentation_camera_sample& sample) const;
     void begin_presentation_frame(const presentation_camera_sample& sample, std::uint32_t width, std::uint32_t height);
+    // Render-thread-only projection override. Camera origin, angles and public
+    // matrix() stay the real sampled state used by game/combat consumers.
+    void set_render_projection(const foundation::matrix4& matrix) noexcept { m_frame_matrix = matrix; }
+    [[nodiscard]] foundation::matrix4 render_matrix() const noexcept { return m_frame_matrix; }
 
     [[nodiscard]] bool sample(foundation::vec3& origin, foundation::vec3& angles) const;
     [[nodiscard]] foundation::vec2 project(const foundation::vec3& world_pos) const;
