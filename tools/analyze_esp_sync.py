@@ -85,6 +85,51 @@ def summarize(rows: list[dict[str, str]]) -> dict:
     repeated = sum(number(row, "repeated_pose_frames") or 0 for row in rows)
     result["repeated_pose_fraction_of_draw_frames"] = repeated / drawn if drawn else None
     result["draw_frames"] = drawn
+
+    # Ages in the export are recorded *after* Present returned. Subtracting
+    # present_call_ms approximates the age at the start of Present; it does not
+    # measure photon/display latency. Do not clamp invalid negative estimates.
+    for source, output in (("pose_age_ms", "pose_age_before_present_est_ms"),
+                           ("world_age_ms", "world_age_before_present_est_ms")):
+        before = []
+        for row in rows:
+            age = number(row, source)
+            call = number(row, "present_call_ms")
+            if age is not None and call is not None and age >= call >= 0:
+                before.append(age - call)
+        result[output] = {"count": len(before),
+                          "median": percentile(before, 0.5),
+                          "p95": percentile(before, 0.95)}
+
+    age_present = [(a, b) for row in rows
+                   if (a := number(row, "pose_age_ms")) is not None
+                   and (b := number(row, "present_call_ms")) is not None]
+    shift_present = [(a, b) for row in rows
+                     if (a := number(row, "camera_projection_shift_px")) is not None
+                     and (b := number(row, "present_call_ms")) is not None]
+    result["pose_age_vs_present_call_r"] = (
+        correlation([a for a, _ in age_present], [b for _, b in age_present])
+        if age_present else None)
+    result["projection_shift_vs_present_call_r"] = (
+        correlation([a for a, _ in shift_present], [b for _, b in shift_present])
+        if shift_present else None)
+
+    # Refresh budget is a comparison baseline only: Present's CPU duration is
+    # not equal to the total time to display a composed image.
+    budgets = [(call, 1000.0 / refresh)
+               for row in rows
+               if (call := number(row, "present_call_ms")) is not None
+               and call >= 0
+               and (refresh := number(row, "display_refresh_hz")) is not None
+               and refresh > 0]
+    result["present_call_over_refresh_budget_ratio"] = (
+        sum(call > budget for call, budget in budgets) / len(budgets)
+        if budgets else None)
+    result["present_budget_samples"] = len(budgets)
+    shift = [v for row in rows
+             if (v := number(row, "camera_projection_shift_px")) is not None and v >= 0]
+    result["projection_shift_over_5px_ratio"] = (
+        sum(v > 5.0 for v in shift) / len(shift) if shift else None)
     return result
 
 
