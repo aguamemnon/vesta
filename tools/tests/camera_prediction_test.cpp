@@ -52,7 +52,7 @@ int main()
     prediction.reset();
     auto almost_full_circle = initial;
     almost_full_circle.angles.y = 359.0f;
-    prediction.observe(almost_full_circle, t + 42ms, 3.0f);
+    static_cast<void>(prediction.observe(almost_full_circle, t + 42ms, 3.0f));
     auto wrapped = almost_full_circle;
     wrapped.angles.y = 0.0f;
     wrapped.matrix[0][0] = 0.99f;
@@ -61,7 +61,7 @@ int main()
     // Unsafe inputs must not propagate NaN into the projected matrix.
     prediction.reset();
     initial.matrix[0][0] = 1.0f;
-    prediction.observe(initial, t + 54ms, 3.0f);
+    static_cast<void>(prediction.observe(initial, t + 54ms, 3.0f));
     auto invalid = initial;
     invalid.angles.y = 1.0f;
     invalid.matrix[0][0] = std::numeric_limits<float>::quiet_NaN();
