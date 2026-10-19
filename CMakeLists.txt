@@ -268,6 +268,16 @@ if(MSVC)
     target_compile_options(vesta_mesh_file PRIVATE /utf-8 /W4)
 endif()
 
+# Optional pure-math regression tests, enabled by CI before publishing a preview.
+# This target never links to the game, the Windows overlay or the network.
+option(VESTA_BUILD_CAMERA_TESTS "Build the standalone camera projection regression tests" OFF)
+if(VESTA_BUILD_CAMERA_TESTS)
+    enable_testing()
+    add_executable(vesta_camera_prediction_test tools/tests/camera_prediction_test.cpp)
+    target_include_directories(vesta_camera_prediction_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    add_test(NAME vesta_camera_prediction COMMAND vesta_camera_prediction_test)
+endif()
+
 add_executable(${PROJECT_NAME} ${vesta_sources})
 target_link_libraries(${PROJECT_NAME} PRIVATE vesta_diagnostics vesta_storage vesta_mesh_file)
 # The product is an ordinary user process: no elevation request, no UIAccess, no token changes.
