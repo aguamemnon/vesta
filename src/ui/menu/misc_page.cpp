@@ -156,11 +156,12 @@ void draw_general_tab()
         status = "Last session crashed";
         status_failed = true;
     }
-    card_in_column("engine", "ENGINE", 10 + (status ? 1 : 0) +
+    card_in_column("engine", "ENGINE", 11 + (status ? 1 : 0) +
                    (g_sync_csv_outcome != report_outcome::none ? 1 : 0), 1,
                    [&]
                    {
                        toggle_row("Performance Mode (Monitor Hz)", p.performance_mode);
+                       toggle_row("Visual Camera Prediction", p.visual_camera_prediction);
                        const auto& overlay = ui::bound_overlay();
                        ImGui::TextColored(k_text_muted, "DX11 Auto GPU: %s (%u MiB) | Display: %u Hz",
                                           ui::overlay_gpu_vendor_name(overlay.gpu_vendor_id()),
