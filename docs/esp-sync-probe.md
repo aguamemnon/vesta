@@ -1,4 +1,4 @@
-# ESP Sync Probe — Vesta v1.2.15
+# ESP Sync Probe — Vesta v1.2.16
 
 This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appear behind an opponent when the observer strafes, even with a stationary bot.
 
@@ -44,7 +44,8 @@ known Present breakdown, i.e. from the previous frame.
 - `camera_prediction_applied` (v1.2.13+): 1 if the compensated green marker was valid for the sampled point, else 0.
 - `pose_acquisition_ms` (v1.2.14+): time between starting the pose worker sampling pass and completing its immutable frame. This is acquisition time, not DXGI/compositor latency.
 - `stale_world_players` (v1.2.15+): number of otherwise eligible players skipped during the pose pass because their world snapshot exceeded the visual freshness budget (50 ms).
-- `stale_fallback_bones` (v1.2.15+): number of otherwise reusable cached bone sets that exceeded their visual budget (50 ms). These counters are collected per pose frame, and visible only in sampled rows with a selected test target.
+- `stale_fallback_bones` (v1.2.15+): number of otherwise reusable cached bone sets that exceeded their visual budget (50 ms). Starting in v1.2.16, these counters are retained even in sampled frames with no visible target, as long as a pose frame exists.
+- `probe_status` (v1.2.16+): 0=selected pose, 1=pose unavailable, 2=camera unavailable, 3=no visible pose, 4=invalid viewport, 5=probe not drawn. The 10 Hz recorder now logs presentation attempts even without an available visual pose. Position-dependent fields may be `-1` (not measured); do not interpret that sentinel as a real position/timing value.
 - `present_call_ms`: time for the **current** `present_frame` operation (including retries, but not later GPU display time).
 - `present_dropped`: whether this present attempt was dropped.
 - `simulation_tick`: game tick value from the sampled player; negative values, such as -1 in the three previous captures, are invalid.
