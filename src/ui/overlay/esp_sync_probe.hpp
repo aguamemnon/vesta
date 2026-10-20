@@ -37,6 +37,18 @@ class probe
 {
     using clock = std::chrono::steady_clock;
 
+    // Classify every sampled presentation attempt, even without a pose.
+    // Codes are appended to the CSV so existing readers keep working.
+    enum class probe_state : std::uint32_t
+    {
+        selected = 0,
+        pose_unavailable = 1,
+        camera_unavailable = 2,
+        no_visible_pose = 3,
+        invalid_viewport = 4,
+        not_drawn = 5,
+    };
+
     struct row
     {
         float elapsed_ms{};
@@ -51,6 +63,7 @@ class probe
         float pose_acquisition_ms{};
         std::uint32_t stale_world_players{};
         std::uint32_t stale_fallback_bones{};
+        probe_state status{probe_state::not_drawn};
         // Relative camera movement between pose capture and live projection.
         float camera_rotation_deg{};
         float camera_translation_units{};
@@ -102,6 +115,7 @@ class probe
         float pose_acquisition_ms{};
         std::uint32_t stale_world_players{};
         std::uint32_t stale_fallback_bones{};
+        probe_state status{probe_state::not_drawn};
     };
 
     static constexpr std::size_t k_capacity = 1800; // 3 minutes @ 10 samples/s
@@ -192,14 +206,14 @@ public:
         m_present_dropped = dropped;
         if (dropped)
             ++m_present_drops;
-        m_last_pose_to_present_ms = m_pending.valid ? age_ms(now, m_pending.pose_at) : -1.0f;
-
-        if (!m_pending.valid)
-            return;
+        m_last_pose_to_present_ms = age_ms(now, m_pending.pose_at);
         if (m_started == clock::time_point{})
             m_started = now;
         if (m_last_record != clock::time_point{} && now - m_last_record < std::chrono::milliseconds(100))
+        {
+            m_pending = {};
             return;
+        }
 
         m_last_record = now;
         row r{};
@@ -209,12 +223,13 @@ public:
         r.bone_age_ms = age_ms(now, m_pending.bone_at);
         r.camera_age_ms = age_ms(now, m_pending.camera_at);
         r.camera_gap_ms = m_pending.camera_gap_ms;
-        r.camera_shift_px = m_pending.camera_shift_px;
-        r.visual_shift_px = m_pending.visual_shift_px;
+        r.camera_shift_px = m_pending.valid ? m_pending.camera_shift_px : -1.0f;
+        r.visual_shift_px = m_pending.valid ? m_pending.visual_shift_px : -1.0f;
         r.visual_prediction_applied = m_pending.visual_prediction_applied;
         r.pose_acquisition_ms = m_pending.pose_acquisition_ms;
         r.stale_world_players = m_pending.stale_world_players;
         r.stale_fallback_bones = m_pending.stale_fallback_bones;
+        r.status = m_pending.status;
         r.camera_rotation_deg = m_pending.camera_rotation_deg;
         r.camera_translation_units = m_pending.camera_translation_units;
         r.present_call_ms = metrics.total_ms;
@@ -234,7 +249,7 @@ public:
         r.repeated_pose_frames = m_reused_pose_frames_since_record;
         r.simulation_time = m_pending.simulation_time;
         r.simulation_valid = m_pending.simulation_valid;
-        r.sim_unchanged_ms = m_last_sim_unchanged_ms;
+        r.sim_unchanged_ms = m_pending.valid ? m_last_sim_unchanged_ms : -1.0f;
         r.pacing_wait_ms = m_last_pacing_wait_ms;
         r.performance_mode = performance_mode;
         r.gpu_effects = gpu_effects;
@@ -245,6 +260,7 @@ public:
         m_head = (m_head + 1) % k_capacity;
         m_count = std::min(m_count + 1, k_capacity);
         m_draw_frames_since_record = m_reused_pose_frames_since_record = 0;
+        m_pending = {};
     }
 
     // Called only while the opt-in diagnostic toggle is enabled. At most one
@@ -253,10 +269,11 @@ public:
               const game::presentation_camera_sample* live_camera, std::uint32_t width, std::uint32_t height,
               clock::time_point live_camera_at, const foundation::matrix4* visual_matrix = nullptr)
     {
+        m_pending = {};
+        m_pending.status = probe_state::invalid_viewport;
         if (!width || !height)
             return;
         const auto now = clock::now();
-        m_pending = {};
         auto* canvas = ImGui::GetForegroundDrawList();
         const auto w = static_cast<float>(width);
         const auto h = static_cast<float>(height);
@@ -270,6 +287,17 @@ public:
         { canvas->AddText(ImVec2{panel_x + 12.0f, y}, color, value); };
 
         print(30.0f, IM_COL32(242, 244, 249, 255), "ESP SYNC PROBE | passive 10 Hz");
+        if (frame)
+        {
+            m_pending.pose_at = frame->timestamp;
+            m_pending.camera_at = frame->camera_captured_at;
+            m_pending.pose_acquisition_ms = age_ms(frame->timestamp, frame->capture_started_at);
+            m_pending.stale_world_players = frame->stale_world_players;
+            m_pending.stale_fallback_bones = frame->stale_fallback_bones;
+        }
+        m_pending.status = !frame || !frame->world ? probe_state::pose_unavailable
+                                                  : !live_camera ? probe_state::camera_unavailable
+                                                                 : probe_state::no_visible_pose;
         if (!frame || !frame->world || !live_camera)
         {
             print(53.0f, IM_COL32(242, 175, 98, 255),
@@ -428,7 +456,8 @@ public:
             .visual_prediction_applied = visual_applied,
             .pose_acquisition_ms = age_ms(frame->timestamp, frame->capture_started_at),
             .stale_world_players = frame->stale_world_players,
-            .stale_fallback_bones = frame->stale_fallback_bones
+            .stale_fallback_bones = frame->stale_fallback_bones,
+            .status = probe_state::selected
         };
     }
 
@@ -455,7 +484,7 @@ public:
                   "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
                   "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms,"
                   "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz,"
-                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units,camera_prediction_shift_px,camera_prediction_applied,pose_acquisition_ms,stale_world_players,stale_fallback_bones\n";
+                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units,camera_prediction_shift_px,camera_prediction_applied,pose_acquisition_ms,stale_world_players,stale_fallback_bones,probe_status\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -478,7 +507,7 @@ public:
                    << s.camera_rotation_deg << ',' << s.camera_translation_units << ','
                    << s.visual_shift_px << ',' << (s.visual_prediction_applied ? 1 : 0) << ','
                    << s.pose_acquisition_ms << ',' << s.stale_world_players << ','
-                   << s.stale_fallback_bones << '\n';
+                   << s.stale_fallback_bones << ',' << static_cast<std::uint32_t>(s.status) << '\n';
         }
         output.flush();
         return output.good();
