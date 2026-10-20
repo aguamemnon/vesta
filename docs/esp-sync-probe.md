@@ -1,4 +1,4 @@
-# ESP Sync Probe — Vesta v1.2.14
+# ESP Sync Probe — Vesta v1.2.15
 
 This **opt-in, passive** tool tests why the Player ESP box **and** skeleton appear behind an opponent when the observer strafes, even with a stationary bot.
 
@@ -43,6 +43,8 @@ known Present breakdown, i.e. from the previous frame.
 - `camera_prediction_shift_px` (v1.2.13+): pixel displacement between raw and bounded compensated projections of the same point; 0 when prediction is bypassed.
 - `camera_prediction_applied` (v1.2.13+): 1 if the compensated green marker was valid for the sampled point, else 0.
 - `pose_acquisition_ms` (v1.2.14+): time between starting the pose worker sampling pass and completing its immutable frame. This is acquisition time, not DXGI/compositor latency.
+- `stale_world_players` (v1.2.15+): number of otherwise eligible players skipped during the pose pass because their world snapshot exceeded the visual freshness budget (50 ms).
+- `stale_fallback_bones` (v1.2.15+): number of otherwise reusable cached bone sets that exceeded their visual budget (50 ms). These counters are collected per pose frame, and visible only in sampled rows with a selected test target.
 - `present_call_ms`: time for the **current** `present_frame` operation (including retries, but not later GPU display time).
 - `present_dropped`: whether this present attempt was dropped.
 - `simulation_tick`: game tick value from the sampled player; negative values, such as -1 in the three previous captures, are invalid.
@@ -67,6 +69,11 @@ The CSV is a fixed-memory **up to 10 samples/s** ring (up to 180 seconds). **It 
 ## What this test does and does not establish
 
 The world sampler nominally runs at 64 Hz. Starting in v1.2.11, the pose sampler runs on a **dedicated worker thread**, targeting the actual detected display refresh in Performance Mode (165 Hz on a correctly configured 165 Hz monitor). The DX11 overlay independently targets the same monitor refresh rather than the former 90 Hz cap. These are requested cadences, **not guaranteed delivered frames or fresh game-world snapshots**. The worker may reuse a bone set for up to 100 ms after a failed read; the renderer can also reuse a pose if the worker has not completed the next one. This tool timestamps the three acquisition stages independently.
+
+The v1.2.15 visual freshness budget deliberately prefers temporarily missing
+visuals over displaying out-of-date locations. Do not interpret a temporary
+ESP gap as a new rendering failure without comparing the counters and world
+sampler timing. The normal 165 Hz display target remains unchanged.
 
 The latest camera projection and captured-pose camera projection help detect **inconsistent camera/pose sampling**; they are not a frame-perfect oracle for the CS2 renderer. Measuring absolute alignment to CS2 would require video-frame comparison or instrumentation unavailable in this passive overlay.
 
