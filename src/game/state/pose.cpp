@@ -3,6 +3,7 @@
 #include <game/state/services.hpp>
 
 #include <game/state/pose.hpp>
+#include <game/state/pose_visual_freshness.hpp>
 #include <game/state/level.hpp>
 
 namespace game
