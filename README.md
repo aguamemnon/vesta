@@ -18,7 +18,7 @@ sandboxed Lua API. The native client stays external: no injection and no driver.
 
 </div>
 
-## Fork preview: ESP Sync Probe v1.2.14
+## Fork preview: ESP Sync Probe v1.2.15
 
 The **Performance Mode** setting at **Misc → General → Engine** keeps
 Vesta's external DX11 overlay independent of CS2's own FPS limit.
@@ -46,6 +46,18 @@ and frame pacing. It counts repeated pose frames, records valid/invalid
 simulation timestamps without fabricating missing ticks, and stamps the
 actual Performance Mode / GPU Effects state of each recording. This is a
 diagnostic-only update; normal ESP and combat behavior are unchanged.
+
+**v1.2.15:** Visual pose rendering rejects world snapshots older than 50 ms
+and cached fallback bone sets older than 50 ms. Each world player is timestamped
+at its own read start instead of the beginning of the entire 64 Hz pass; a
+final presentation-thread guard rejects an immutable frame that became stale
+while queued. Both the ESP and chams consume the same guarded pose frame.
+This does not raise the world poll rate or alter game input, 165 Hz pacing,
+or the aim/combat pipeline. Under a stalled sampler, stale visual markers can
+briefly disappear instead of trailing behind their last known positions.
+The optional ESP Sync CSV adds `stale_world_players` and
+`stale_fallback_bones` counters. A standalone C++ freshness-policy regression
+test runs in CI before the Windows executable is packaged.
 
 **v1.2.14:** The camera lookahead now advances a single rigid orientation
 and eye translation, preserving perspective row geometry instead of
