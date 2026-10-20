@@ -127,11 +127,22 @@ std::shared_ptr<const player_pose_frame> player_pose_sampler::latest() const
     const auto frame = m_latest.load(std::memory_order_acquire);
     const auto local = game::local_player().snapshot();
     const auto level = game::level().name();
+    const auto now = std::chrono::steady_clock::now();
     if (!frame || !local ||
-        !detail::pose_frame_usable(frame->identity, pose_context(*local, level, presentation), frame->timestamp,
-                                   std::chrono::steady_clock::now()) ||
+        !detail::pose_frame_usable(frame->identity, pose_context(*local, level, presentation), frame->timestamp, now) ||
         m_presentation.load(std::memory_order_acquire) != presentation)
         return {};
+
+    // Final guard on the presentation thread: even if the producer stalls,
+    // never reuse an otherwise "recent" pose paired with old world data.
+    for (const auto& pose : frame->players)
+    {
+        if (!frame->world || pose.source_index >= frame->world->size() ||
+            !detail::visual_world_fresh((*frame->world)[pose.source_index].sampled_at, now) ||
+            (pose.reused_after_read_failure &&
+             !detail::visual_fallback_bone_fresh(pose.bone_captured_at, now)))
+            return {};
+    }
     return frame;
 }
 
