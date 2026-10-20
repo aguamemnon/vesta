@@ -50,6 +50,40 @@ class TestEspSyncAnalyzer(unittest.TestCase):
         self.assertIsNone(report["pose_age_vs_present_call_r"])
         self.assertIsNone(report["present_call_over_refresh_budget_ratio"])
 
+    def test_probe_status_distinguishes_dropped_visual_data_from_present_timing(self):
+        rows = [
+            {"probe_status": "0", "pose_age_ms": "9", "present_call_ms": "5",
+             "display_refresh_hz": "165", "camera_projection_shift_px": "3"},
+            {"probe_status": "1", "pose_age_ms": "-1", "present_call_ms": "8",
+             "display_refresh_hz": "165", "camera_projection_shift_px": "-1"},
+            {"probe_status": "3", "pose_age_ms": "15", "present_call_ms": "10",
+             "display_refresh_hz": "165", "camera_projection_shift_px": "-1"},
+            {"probe_status": "5", "pose_age_ms": "-1", "present_call_ms": "12",
+             "display_refresh_hz": "165", "camera_projection_shift_px": "-1"},
+        ]
+        report = analyzer.summarize(rows)
+        self.assertEqual(report["samples"], 4)
+        self.assertEqual(report["probe_status_samples"], 4)
+        self.assertEqual(report["probe_status_counts"]["pose_unavailable"], 1)
+        self.assertEqual(report["probe_status_counts"]["no_visible_pose"], 1)
+        self.assertEqual(report["probe_status_counts"]["not_drawn"], 1)
+        self.assertEqual(report["probe_selected_ratio"], 0.25)
+        self.assertEqual(report["probe_unavailable_ratio"], 0.75)
+        self.assertEqual(report["pose_age_ms"]["count"], 1)
+        self.assertEqual(report["pose_age_ms"]["median"], 9)
+        self.assertEqual(report["projection_shift_over_5px_ratio"], 0.0)
+        self.assertEqual(report["present_call_ms"]["count"], 4)
+        self.assertEqual(report["present_call_over_refresh_budget_ratio"], 0.75)
+
+    def test_legacy_csv_has_no_invented_probe_status(self):
+        report = analyzer.summarize([{
+            "pose_age_ms": "11", "present_call_ms": "6",
+            "camera_projection_shift_px": "7"
+        }])
+        self.assertIsNone(report["probe_status_counts"])
+        self.assertIsNone(report["probe_selected_ratio"])
+        self.assertEqual(report["pose_age_ms"]["median"], 11)
+
 
 if __name__ == "__main__":
     unittest.main()
