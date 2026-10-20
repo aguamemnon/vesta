@@ -17,6 +17,7 @@ FIELDS = (
     "pose_to_present_ms", "sim_unchanged_ms",
     "camera_rotation_deg", "camera_translation_units",
     "camera_prediction_shift_px", "pose_acquisition_ms",
+    "stale_world_players", "stale_fallback_bones",
 )
 SKIP_NEGATIVE = {"sim_unchanged_ms", "camera_rotation_deg", "camera_translation_units",
                  "camera_gap_ms"}
