@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(vesta VERSION 1.2.14 LANGUAGES C CXX)
+project(vesta VERSION 1.2.15 LANGUAGES C CXX)
 
 # Lua (compiled as C) reports errors with longjmp through Vesta's C++ API functions. With /EHsc MSVC assumes that
 # extern "C" functions never throw and skips the destructors of those frames, leaving locks held and memory leaked;
