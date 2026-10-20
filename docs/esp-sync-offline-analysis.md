@@ -55,11 +55,21 @@ so earlier samples remain comparable; the new columns quantify correction
 amount, not absolute alignment to the game's image.
 
 Starting in v1.2.15, the export adds `stale_world_players` and
-`stale_fallback_bones` counts. The counts are meaningful only for the frames
-that reach the 10 Hz selected-target probe; a completely empty or suppressed
-frame may produce no row. A low count does not prove that the world renderer
-is frame-perfect, and dropping stale visual samples trades potential display
-gaps for fewer outdated overlays.
+`stale_fallback_bones` counts. These represent the worker's skipped visual
+samples, not missing network packets. A low count does not prove that the
+world renderer is frame-perfect: dropping stale visual samples trades
+potential display gaps for fewer outdated overlays.
+
+**v1.2.16:** The opt-in 10 Hz ring captures presentation attempts with no
+selected visual pose instead of silently omitting them. The appended
+`probe_status` column identifies the reason: `0` selected, `1` no pose,
+`2` no camera, `3` no visible pose, `4` invalid viewport, `5` no probe draw.
+The analyzer reports `probe_status_counts` and `probe_unavailable_ratio`.
+It excludes non-selected rows from position-dependent calculations while
+retaining their DXGI and frame-build timing, so an absence of ESP data cannot
+artificially improve latency statistics. Some unavailable fields use `-1`.
+Older CSV files are accepted, and the analyzer does not invent status ratios
+for recordings made before this column existed.
 
 The v1.2.14 capture adds `pose_acquisition_ms` to explicitly measure the
 pose worker pass duration. The frame freshness timestamp was moved to the
