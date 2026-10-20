@@ -154,6 +154,8 @@ void player_pose_sampler::sample_once()
         return;
     auto frame = m_frames.acquire();
     frame->players.clear();
+    frame->stale_world_players = 0;
+    frame->stale_fallback_bones = 0;
     frame->camera = {};
     frame->camera_captured_at = {};
     frame->identity = identity;
@@ -183,6 +185,14 @@ void player_pose_sampler::sample_once()
             continue;
         }
 
+        // Only pair bones with player state acquired recently enough for the
+        // visual overlay. Remote reads and combat samples are unchanged.
+        if (!detail::visual_world_fresh(player.sampled_at, std::chrono::steady_clock::now()))
+        {
+            ++frame->stale_world_players;
+            continue;
+        }
+
         auto bones = game::skeletons().get(player.bone_cache);
         bool reused{};
         auto bone_captured_at = std::chrono::steady_clock::now();
@@ -197,6 +207,12 @@ void player_pose_sampler::sample_once()
                 cached->second.model_path != player.model_path ||
                 now - cached->second.timestamp > k_pose_fallback_lifetime)
             {
+                continue;
+            }
+            if (!detail::visual_fallback_bone_fresh(cached->second.timestamp,
+                                                     std::chrono::steady_clock::now()))
+            {
+                ++frame->stale_fallback_bones;
                 continue;
             }
             bones = cached->second.bones;
