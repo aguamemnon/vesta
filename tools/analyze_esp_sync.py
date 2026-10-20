@@ -19,8 +19,22 @@ FIELDS = (
     "camera_prediction_shift_px", "pose_acquisition_ms",
     "stale_world_players", "stale_fallback_bones",
 )
+# -1 denotes missing data in a row without a drawable target (v1.2.16+).
 SKIP_NEGATIVE = {"sim_unchanged_ms", "camera_rotation_deg", "camera_translation_units",
-                 "camera_gap_ms"}
+                 "camera_gap_ms", "pose_age_ms", "world_age_ms", "bone_age_ms",
+                 "pose_camera_age_ms", "pose_to_present_ms",
+                 "world_to_present_ms", "bone_to_present_ms", "pose_acquisition_ms",
+                 "camera_projection_shift_px", "camera_prediction_shift_px"}
+POSE_ONLY_FIELDS = {
+    "pose_age_ms", "world_age_ms", "bone_age_ms", "pose_camera_age_ms",
+    "camera_gap_ms", "camera_projection_shift_px", "pose_to_present_ms",
+    "sim_unchanged_ms", "camera_rotation_deg", "camera_translation_units",
+    "camera_prediction_shift_px",
+}
+PROBE_STATUS_NAMES = (
+    "selected", "pose_unavailable", "camera_unavailable",
+    "no_visible_pose", "invalid_viewport", "not_drawn",
+)
 
 
 def number(row: dict[str, str], key: str) -> float | None:
@@ -55,8 +69,29 @@ def correlation(xs: list[float], ys: list[float]) -> float | None:
 
 def summarize(rows: list[dict[str, str]]) -> dict:
     result: dict = {"samples": len(rows)}
+    # Legacy CSVs have no status column: every row was a selected pose.
+    # New CSVs record every sampled Present, including absent pose data.
+    selected = [
+        row for row in rows if "probe_status" not in row or number(row, "probe_status") == 0
+    ]
+    valid_states = [
+        int(v) for row in rows
+        if (v := number(row, "probe_status")) is not None
+        and v.is_integer() and 0 <= v < len(PROBE_STATUS_NAMES)
+    ]
+    result["probe_status_samples"] = len(valid_states)
+    result["probe_status_counts"] = ({
+        name: valid_states.count(index) for index, name in enumerate(PROBE_STATUS_NAMES)
+    } if valid_states else None)
+    result["probe_selected_ratio"] = (
+        valid_states.count(0) / len(valid_states) if valid_states else None
+    )
+    result["probe_unavailable_ratio"] = (
+        1.0 - result["probe_selected_ratio"] if valid_states else None
+    )
     for key in FIELDS:
-        vals = [v for row in rows if (v := number(row, key)) is not None]
+        source = selected if key in POSE_ONLY_FIELDS else rows
+        vals = [v for row in source if (v := number(row, key)) is not None]
         result[key] = {
             "count": len(vals),
             "median": percentile(vals, 0.5),
@@ -65,14 +100,14 @@ def summarize(rows: list[dict[str, str]]) -> dict:
         }
     pairs = [
         (number(row, "camera_gap_ms"), number(row, "camera_projection_shift_px"))
-        for row in rows
+        for row in selected
     ]
     valid = [(a, b) for a, b in pairs if a is not None and b is not None]
     result["camera_gap_vs_projection_shift_r"] = (
         correlation([a for a, _ in valid], [b for _, b in valid]) if valid else None
     )
     for key in ("camera_rotation_deg", "camera_translation_units"):
-        aligned = [(a, b) for row in rows
+        aligned = [(a, b) for row in selected
                    if (a := number(row, key)) is not None
                    and (b := number(row, "camera_projection_shift_px")) is not None]
         result[key + "_vs_projection_shift_r"] = (
@@ -86,7 +121,7 @@ def summarize(rows: list[dict[str, str]]) -> dict:
     drawn = sum(number(row, "draw_frames") or 0 for row in rows)
     repeated = sum(number(row, "repeated_pose_frames") or 0 for row in rows)
     result["repeated_pose_fraction_of_draw_frames"] = repeated / drawn if drawn else None
-    prediction = [number(row, "camera_prediction_applied") for row in rows]
+    prediction = [number(row, "camera_prediction_applied") for row in selected]
     measured = [p for p in prediction if p is not None]
     result["camera_prediction_applied_fraction"] = (
         sum(p != 0 for p in measured) / len(measured) if measured else None
@@ -99,7 +134,7 @@ def summarize(rows: list[dict[str, str]]) -> dict:
     for source, output in (("pose_age_ms", "pose_age_before_present_est_ms"),
                            ("world_age_ms", "world_age_before_present_est_ms")):
         before = []
-        for row in rows:
+        for row in selected:
             age = number(row, source)
             call = number(row, "present_call_ms")
             if age is not None and call is not None and age >= call >= 0:
@@ -108,10 +143,10 @@ def summarize(rows: list[dict[str, str]]) -> dict:
                           "median": percentile(before, 0.5),
                           "p95": percentile(before, 0.95)}
 
-    age_present = [(a, b) for row in rows
+    age_present = [(a, b) for row in selected
                    if (a := number(row, "pose_age_ms")) is not None
                    and (b := number(row, "present_call_ms")) is not None]
-    shift_present = [(a, b) for row in rows
+    shift_present = [(a, b) for row in selected
                      if (a := number(row, "camera_projection_shift_px")) is not None
                      and (b := number(row, "present_call_ms")) is not None]
     result["pose_age_vs_present_call_r"] = (
@@ -133,7 +168,7 @@ def summarize(rows: list[dict[str, str]]) -> dict:
         sum(call > budget for call, budget in budgets) / len(budgets)
         if budgets else None)
     result["present_budget_samples"] = len(budgets)
-    shift = [v for row in rows
+    shift = [v for row in selected
              if (v := number(row, "camera_projection_shift_px")) is not None and v >= 0]
     result["projection_shift_over_5px_ratio"] = (
         sum(v > 5.0 for v in shift) / len(shift) if shift else None)
