@@ -108,11 +108,11 @@ class probe
         bool fallback_bones{};
         float camera_gap_ms{-1.0f};
         float camera_shift_px{};
-        float camera_rotation_deg{};
-        float camera_translation_units{};
+        float camera_rotation_deg{-1.0f};
+        float camera_translation_units{-1.0f};
         float visual_shift_px{};
         bool visual_prediction_applied{};
-        float pose_acquisition_ms{};
+        float pose_acquisition_ms{-1.0f};
         std::uint32_t stale_world_players{};
         std::uint32_t stale_fallback_bones{};
         probe_state status{probe_state::not_drawn};
