@@ -7,6 +7,8 @@ on:
     paths:
       - tools/analyze_esp_sync.py
       - src/foundation/math/camera_prediction.hpp
+      - src/game/state/pose_visual_freshness.hpp
+      - tools/tests/visual_freshness_test.cpp
       - tools/tests/camera_prediction_test.cpp
       - tools/tests/test_analyze_esp_sync.py
       - .github/workflows/esp-sync-analyzer.yml
@@ -38,3 +40,7 @@ jobs:
         run: g++ -std=c++23 -O2 -Wall -Wextra -Werror -Isrc tools/tests/camera_prediction_test.cpp -o /tmp/vesta-camera-prediction-test
       - name: Check clamps and fallbacks
         run: /tmp/vesta-camera-prediction-test
+      - name: Compile visual freshness policy
+        run: g++ -std=c++23 -O2 -Wall -Wextra -Werror -Isrc tools/tests/visual_freshness_test.cpp -o /tmp/vesta-visual-freshness-test
+      - name: Check stale sample handling
+        run: /tmp/vesta-visual-freshness-test
