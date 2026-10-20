@@ -270,12 +270,15 @@ endif()
 
 # Optional pure-math regression tests, enabled by CI before publishing a preview.
 # This target never links to the game, the Windows overlay or the network.
-option(VESTA_BUILD_CAMERA_TESTS "Build the standalone camera projection regression tests" OFF)
+option(VESTA_BUILD_CAMERA_TESTS "Build standalone overlay timing regression tests" OFF)
 if(VESTA_BUILD_CAMERA_TESTS)
     enable_testing()
     add_executable(vesta_camera_prediction_test tools/tests/camera_prediction_test.cpp)
     target_include_directories(vesta_camera_prediction_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     add_test(NAME vesta_camera_prediction COMMAND vesta_camera_prediction_test)
+    add_executable(vesta_visual_freshness_test tools/tests/visual_freshness_test.cpp)
+    target_include_directories(vesta_visual_freshness_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    add_test(NAME vesta_visual_freshness COMMAND vesta_visual_freshness_test)
 endif()
 
 add_executable(${PROJECT_NAME} ${vesta_sources})
