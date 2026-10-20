@@ -54,6 +54,13 @@ and the accepted prediction fraction. The original
 so earlier samples remain comparable; the new columns quantify correction
 amount, not absolute alignment to the game's image.
 
+Starting in v1.2.15, the export adds `stale_world_players` and
+`stale_fallback_bones` counts. The counts are meaningful only for the frames
+that reach the 10 Hz selected-target probe; a completely empty or suppressed
+frame may produce no row. A low count does not prove that the world renderer
+is frame-perfect, and dropping stale visual samples trades potential display
+gaps for fewer outdated overlays.
+
 The v1.2.14 capture adds `pose_acquisition_ms` to explicitly measure the
 pose worker pass duration. The frame freshness timestamp was moved to the
 end of acquisition, so `pose_age_ms` on new captures is no longer inflated
