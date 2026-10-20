@@ -49,6 +49,8 @@ class probe
         float visual_shift_px{};
         bool visual_prediction_applied{};
         float pose_acquisition_ms{};
+        std::uint32_t stale_world_players{};
+        std::uint32_t stale_fallback_bones{};
         // Relative camera movement between pose capture and live projection.
         float camera_rotation_deg{};
         float camera_translation_units{};
@@ -98,6 +100,8 @@ class probe
         float visual_shift_px{};
         bool visual_prediction_applied{};
         float pose_acquisition_ms{};
+        std::uint32_t stale_world_players{};
+        std::uint32_t stale_fallback_bones{};
     };
 
     static constexpr std::size_t k_capacity = 1800; // 3 minutes @ 10 samples/s
@@ -209,6 +213,8 @@ public:
         r.visual_shift_px = m_pending.visual_shift_px;
         r.visual_prediction_applied = m_pending.visual_prediction_applied;
         r.pose_acquisition_ms = m_pending.pose_acquisition_ms;
+        r.stale_world_players = m_pending.stale_world_players;
+        r.stale_fallback_bones = m_pending.stale_fallback_bones;
         r.camera_rotation_deg = m_pending.camera_rotation_deg;
         r.camera_translation_units = m_pending.camera_translation_units;
         r.present_call_ms = metrics.total_ms;
@@ -420,7 +426,9 @@ public:
             .camera_translation_units = std::isfinite(translation_units) ? translation_units : -1.0f,
             .visual_shift_px = visual_shift_px,
             .visual_prediction_applied = visual_applied,
-            .pose_acquisition_ms = age_ms(frame->timestamp, frame->capture_started_at)
+            .pose_acquisition_ms = age_ms(frame->timestamp, frame->capture_started_at),
+            .stale_world_players = frame->stale_world_players,
+            .stale_fallback_bones = frame->stale_fallback_bones
         };
     }
 
@@ -447,7 +455,7 @@ public:
                   "native_dxgi_present_ms,present_retry_wait_ms,present_calls,present_retries,"
                   "draw_frames,repeated_pose_frames,simulation_time,simulation_valid,sim_unchanged_ms,"
                   "pacing_wait_ms,performance_mode,gpu_effects,display_refresh_hz,"
-                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units,camera_prediction_shift_px,camera_prediction_applied,pose_acquisition_ms\n";
+                  "pose_target_hz,gpu_vendor_id,camera_rotation_deg,camera_translation_units,camera_prediction_shift_px,camera_prediction_applied,pose_acquisition_ms,stale_world_players,stale_fallback_bones\n";
         const auto start = (m_head + k_capacity - m_count) % k_capacity;
         for (std::size_t i = 0; i < m_count; ++i)
         {
@@ -469,7 +477,8 @@ public:
                    << s.pose_target_hz << ',' << s.gpu_vendor_id << ','
                    << s.camera_rotation_deg << ',' << s.camera_translation_units << ','
                    << s.visual_shift_px << ',' << (s.visual_prediction_applied ? 1 : 0) << ','
-                   << s.pose_acquisition_ms << '\n';
+                   << s.pose_acquisition_ms << ',' << s.stale_world_players << ','
+                   << s.stale_fallback_bones << '\n';
         }
         output.flush();
         return output.good();
